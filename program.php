@@ -3,12 +3,16 @@ declare(strict_types=1);
 require __DIR__ . '/includes/bootstrap.php';
 
 $slug = trim((string) ($_GET['slug'] ?? ''));
+if ($slug === '') {
+    $firstProgram = db()->query("SELECT slug FROM programs WHERE status = 'published' ORDER BY id LIMIT 1")->fetch_assoc();
+    $slug = (string) ($firstProgram['slug'] ?? '');
+}
 if ($slug === '' || !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {
     http_response_code(404);
     exit('Program not found.');
 }
 
-$statement = db()->prepare("SELECT name, slug, description, welcome_message, primary_color, accent_color FROM programs WHERE slug = ? AND status = 'published' LIMIT 1");
+$statement = db()->prepare("SELECT id, name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json FROM programs WHERE slug = ? AND status = 'published' LIMIT 1");
 $statement->bind_param('s', $slug);
 $statement->execute();
 $program = $statement->get_result()->fetch_assoc();
@@ -17,5 +21,12 @@ if (!$program) {
     http_response_code(404);
     exit('Program not found.');
 }
+
+$program['services'] = json_decode($program['services_json'], true);
+if (!is_array($program['services'])) {
+    $program['services'] = default_program_services();
+}
+$program['id'] = (int) $program['id'];
+$feedbackCsrf = csrf_token();
 
 require __DIR__ . '/templates/program.php';

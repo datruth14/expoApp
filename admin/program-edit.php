@@ -8,8 +8,11 @@ $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT) ?: 0;
 $program = [
     'name' => '',
     'slug' => '',
+    'platform_title' => 'Delegate Experience Centre',
+    'tagline' => '',
     'description' => '',
     'welcome_message' => '',
+    'banner_path' => null,
     'primary_color' => '#123c7a',
     'accent_color' => '#e5ad36',
     'status' => 'draft',
@@ -17,7 +20,7 @@ $program = [
 $error = '';
 
 if ($id > 0) {
-    $statement = $connection->prepare('SELECT name, slug, description, welcome_message, primary_color, accent_color, status FROM programs WHERE id = ?');
+    $statement = $connection->prepare('SELECT name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, status FROM programs WHERE id = ?');
     $statement->bind_param('i', $id);
     $statement->execute();
     $saved = $statement->get_result()->fetch_assoc();
@@ -30,13 +33,15 @@ if ($id > 0) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
-    foreach (array_keys($program) as $key) {
+    foreach (['name', 'slug', 'platform_title', 'tagline', 'description', 'welcome_message', 'primary_color', 'accent_color', 'status'] as $key) {
         $program[$key] = trim((string) ($_POST[$key] ?? ''));
     }
     $program['slug'] = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $program['slug'] !== '' ? $program['slug'] : $program['name']), '-'));
 
     if ($program['name'] === '' || $program['slug'] === '' || $program['description'] === '') {
         $error = 'Program name, URL slug, and description are required.';
+    } elseif (strlen($program['name']) > 160 || strlen($program['platform_title']) > 160 || strlen($program['tagline']) > 255) {
+        $error = 'The program name, platform title, or tagline is too long.';
     } elseif (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $program['slug'])) {
         $error = 'Use lowercase letters, numbers, and hyphens in the URL slug.';
     } elseif (!preg_match('/^#[0-9a-fA-F]{6}$/', $program['primary_color']) || !preg_match('/^#[0-9a-fA-F]{6}$/', $program['accent_color'])) {
@@ -49,19 +54,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $check->execute();
         if ($check->get_result()->fetch_assoc()) {
             $error = 'That URL slug is already in use.';
-        } else {
-            if ($id > 0) {
-                $statement = $connection->prepare('UPDATE programs SET name = ?, slug = ?, description = ?, welcome_message = ?, primary_color = ?, accent_color = ?, status = ? WHERE id = ?');
-                $statement->bind_param('sssssssi', $program['name'], $program['slug'], $program['description'], $program['welcome_message'], $program['primary_color'], $program['accent_color'], $program['status'], $id);
-                $statement->execute();
-            } else {
-                $statement = $connection->prepare('INSERT INTO programs (name, slug, description, welcome_message, primary_color, accent_color, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
-                $statement->bind_param('sssssss', $program['name'], $program['slug'], $program['description'], $program['welcome_message'], $program['primary_color'], $program['accent_color'], $program['status']);
-                $statement->execute();
-            }
-            header('Location: programs.php');
-            exit;
         }
+    }
+
+    $oldBanner = $program['banner_path'];
+    $newBanner = $oldBanner;
+    $file = $_FILES['banner'] ?? null;
+    $removeBanner = isset($_POST['remove_banner']);
+    if ($error === '' && $file && $file['error'] !== UPLOAD_ERR_NO_FILE) {
+        if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            $error = 'The banner could not be uploaded. Please try again.';
+        } elseif ($file['size'] > 5 * 1024 * 1024) {
+            $error = 'The banner must be 5 MB or smaller.';
+        } else {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($file['tmp_name']);
+            $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+            $imageInfo = @getimagesize($file['tmp_name']);
+            if (!isset($extensions[$mime]) || !$imageInfo || $imageInfo[0] > 10000 || $imageInfo[1] > 10000) {
+                $error = 'Choose a valid JPG, PNG, or WebP image no larger than 10,000 by 10,000 pixels.';
+            } else {
+                $uploadDirectory = __DIR__ . '/../uploads/banners';
+                if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true) && !is_dir($uploadDirectory)) {
+                    $error = 'The banner upload folder could not be created. Check hosting folder permissions.';
+                } else {
+                    $fileName = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+                    if (!move_uploaded_file($file['tmp_name'], $uploadDirectory . '/' . $fileName)) {
+                        $error = 'The banner could not be saved. Check hosting folder permissions.';
+                    } else {
+                        $newBanner = 'uploads/banners/' . $fileName;
+                    }
+                }
+            }
+        }
+    } elseif ($error === '' && $removeBanner) {
+        $newBanner = null;
+    }
+
+    if ($error === '') {
+        if ($id > 0) {
+            $statement = $connection->prepare('UPDATE programs SET name = ?, slug = ?, platform_title = ?, tagline = ?, description = ?, welcome_message = ?, banner_path = ?, primary_color = ?, accent_color = ?, status = ? WHERE id = ?');
+            $statement->bind_param('ssssssssssi', $program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $program['status'], $id);
+        } else {
+            $servicesJson = json_encode(default_program_services(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $statement = $connection->prepare('INSERT INTO programs (name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $statement->bind_param('sssssssssss', $program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $servicesJson, $program['status']);
+        }
+        $statement->execute();
+
+        if ($oldBanner && $oldBanner !== $newBanner && str_starts_with($oldBanner, 'uploads/banners/')) {
+            $oldFile = __DIR__ . '/../' . $oldBanner;
+            if (is_file($oldFile)) {
+                unlink($oldFile);
+            }
+        }
+
+        header('Location: programs.php');
+        exit;
     }
 }
 ?>
@@ -72,24 +121,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= $id > 0 ? 'Edit' : 'Create' ?> program · Admin</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;background:#f2f7ff;color:#17345e;font:15px Arial,sans-serif}.wrap{max-width:760px;margin:auto;padding:24px}.card{padding:22px;background:#fff;border:1px solid #dce6f2;border-radius:16px}label{display:block;margin:14px 0 6px;font-weight:bold}input:not([type=color]),textarea,select{width:100%;padding:11px;border:1px solid #cbd9eb;border-radius:8px;font:inherit}textarea{min-height:110px}.colors{display:grid;grid-template-columns:1fr 1fr;gap:16px}.colors input{width:100%;height:44px}.actions{display:flex;gap:12px;align-items:center;margin-top:20px}.button{padding:11px 15px;border:0;border-radius:9px;background:#174889;color:white;text-decoration:none;font-weight:bold;cursor:pointer}.error{padding:10px;background:#fff0ed;color:#8b2415;border-radius:8px}
+    *{box-sizing:border-box}body{margin:0;background:#f2f7ff;color:#17345e;font:15px Arial,sans-serif}.wrap{max-width:760px;margin:auto;padding:24px}.card{padding:22px;background:#fff;border:1px solid #dce6f2;border-radius:16px}label{display:block;margin:14px 0 6px;font-weight:bold}input:not([type=color]):not([type=checkbox]),textarea,select{width:100%;padding:11px;border:1px solid #cbd9eb;border-radius:8px;font:inherit}input[type=file]{width:100%;padding:10px;border:1px solid #cbd9eb;border-radius:8px;background:white}textarea{min-height:100px}.colors{display:grid;grid-template-columns:1fr 1fr;gap:16px}.colors input{width:100%;height:44px}.actions{display:flex;gap:12px;align-items:center;margin-top:20px}.button{padding:11px 15px;border:0;border-radius:9px;background:#174889;color:white;text-decoration:none;font-weight:bold;cursor:pointer}.error{padding:10px;background:#fff0ed;color:#8b2415;border-radius:8px}.preview{display:block;max-width:100%;max-height:260px;object-fit:contain;margin:10px 0;border:1px solid #dce6f2;border-radius:10px}.hint{font-size:12px;color:#627895}
   </style>
 </head>
 <body>
   <main class="wrap">
     <h1><?= $id > 0 ? 'Edit program' : 'Create a program' ?></h1>
-    <p>Each program uses the shared public page template. Save it as a draft or publish it.</p>
-    <form class="card" method="post">
+    <p>Program pages share the Delegate Experience Centre template. Each program has its own banner and feedback records.</p>
+    <form class="card" method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <?php if ($error !== ''): ?><p class="error" role="alert"><?= h($error) ?></p><?php endif; ?>
       <label for="name">Program name</label>
       <input id="name" name="name" maxlength="160" value="<?= h($program['name']) ?>" required>
       <label for="slug">URL slug</label>
-      <input id="slug" name="slug" maxlength="180" value="<?= h($program['slug']) ?>" placeholder="my-program">
+      <input id="slug" name="slug" maxlength="180" value="<?= h($program['slug']) ?>" placeholder="my-program" required>
+      <label for="platform_title">Platform title</label>
+      <input id="platform_title" name="platform_title" maxlength="160" value="<?= h($program['platform_title']) ?>" required>
+      <label for="tagline">Tagline</label>
+      <input id="tagline" name="tagline" maxlength="255" value="<?= h($program['tagline']) ?>">
       <label for="description">Description</label>
       <textarea id="description" name="description" required><?= h($program['description']) ?></textarea>
       <label for="welcome_message">Welcome message</label>
       <textarea id="welcome_message" name="welcome_message"><?= h($program['welcome_message']) ?></textarea>
+      <label for="banner">Program banner (JPG, PNG, or WebP; max 5 MB)</label>
+      <input id="banner" name="banner" type="file" accept="image/jpeg,image/png,image/webp">
+      <?php if (!empty($program['banner_path'])): ?>
+        <img class="preview" src="../<?= h($program['banner_path']) ?>" alt="Current program banner">
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="remove_banner"> Remove current banner</label>
+      <?php endif; ?>
       <div class="colors">
         <div><label for="primary_color">Primary color</label><input id="primary_color" name="primary_color" type="color" value="<?= h($program['primary_color']) ?>"></div>
         <div><label for="accent_color">Accent color</label><input id="accent_color" name="accent_color" type="color" value="<?= h($program['accent_color']) ?>"></div>

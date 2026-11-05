@@ -68,3 +68,18 @@ function require_admin(): void
         exit;
     }
 }
+
+function default_program_services(): array
+{
+    return [
+        ['Exhibition Experience', 'Exhibition stands and displays', '🎪'],
+        ['Food Court Experience', 'Food vendors and dining facilities', '🍽️'],
+        ['Accreditation Experience', 'Registration and badge collection', '🪪'],
+        ['Access Control Experience', 'Entry points and access routes', '🔐'],
+        ['Hospitality Experience', 'Guest reception and assistance', '🛎️'],
+        ['Transportation Experience', 'Shuttle and transport services', '🚌'],
+        ['Car Parking Experience', 'Parking locations and vehicle access', '🚘'],
+        ['Venue Experience', 'Facilities, environment and overall venue experience', '🏟️'],
+        ['Lost & Found', 'Help with misplaced belongings', '🧳'],
+    ];
+}

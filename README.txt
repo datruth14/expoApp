@@ -1,36 +1,42 @@
-DELEGATE EXPERIENCE CENTRE – PHP / MYSQLI STARTER
+DELEGATE EXPERIENCE CENTRE – PHP / MYSQLI PROGRAM TEMPLATE
 
 PROJECT CONTENTS
-- index.html: the original standalone HTML/CSS/JavaScript prototype. Its feedback management still uses this browser's localStorage.
-- admin/: admin login and program manager. Sign in and create, edit, draft, or publish program pages.
-- templates/program.php: shared public page template used for every published program.
-- program.php: renders a published program by its slug, for example program.php?slug=summer-conference.
-- config/: server-side MySQLi settings and deployment example. Never publish database credentials in browser files.
-- database_schema_mysql.sql: schema for MySQL/MariaDB; import it using cPanel phpMyAdmin.
-- database_schema_postgresql.sql: original PostgreSQL proposal, retained for reference; it is not used by this starter.
-- agent.md: project-specific instructions for future development.
+- index.html: redirects to the first published program page.
+- program.php and templates/program.php: the public Delegate Experience Centre UI used by every program.
+- admin/: admin login, program manager, per-program feedback viewer, and CSV export.
+- submit-feedback.php: validates and saves public feedback to MySQLi.
+- uploads/banners/: admin-uploaded program banners (the directory must be writable by PHP).
+- config/: server-side MySQLi settings and deployment example. Keep real credentials private.
+- database_schema_mysql.sql: full schema and initial Loveword Expo 2026 program seed for a new database.
+- database_upgrade_v2.sql: one-time migration for databases made from the earlier starter schema.
+- database_schema_postgresql.sql: original PostgreSQL proposal, retained for reference only.
+- agent.md: project conventions for future work.
 
 CPANEL SETUP
-1. Confirm your hosting account supports PHP 8.1+ and MySQLi.
-2. In cPanel > MySQL Databases, create a database and database user, then assign that user to the database with the required privileges. cPanel commonly prefixes the database and username with your account name.
-3. Open phpMyAdmin, select that database, and import database_schema_mysql.sql.
-4. Copy config/secrets.example.php to config/secrets.php. Enter the database host, full database name, full database username, and database user's password supplied by cPanel. The host is often localhost; use the host value shown by your provider.
-5. Upload the project to a PHP-enabled location and serve it over HTTPS. Open /admin/login.php.
+1. Confirm PHP 8.1+ and the MySQLi, Fileinfo, mbstring, and session extensions are enabled.
+2. Upload the project files to your cPanel account, normally under public_html (or the document root assigned to your domain). Keep the directory structure intact.
+3. In cPanel > MySQL Databases, create a database and database user, assign the user to the database with the required privileges, and note the full prefixed names and database host.
+4. For a new database, import database_schema_mysql.sql through phpMyAdmin. It creates the tables and the first published program, “Loveword Expo 2026”.
+5. If the database was created using the earlier starter's schema, take a backup and run database_upgrade_v2.sql once instead. Do not run the upgrade after importing the current full schema.
+6. Copy config/secrets.example.php to config/secrets.php on the cPanel account and enter the cPanel database host, full database name, full database username, and database user's password. Keep secrets.php private.
+7. Ensure uploads/banners is writable by PHP and serve the site over HTTPS.
+8. Open /admin/login.php.
 
 INITIAL ADMIN LOGIN
 - Username: admin
 - Password: admin12345
-- Change this before making the site public. Generate a password hash with:
+- Change this before public deployment. Generate a new password hash using:
   php -r 'echo password_hash("your-new-password", PASSWORD_DEFAULT), PHP_EOL;'
-  Set that hash as ADMIN_PASSWORD_HASH in the hosting environment or as admin_password_hash in config/secrets.php.
+  Set it as ADMIN_PASSWORD_HASH in the hosting environment or as admin_password_hash in config/secrets.php.
 
-PROGRAM TEMPLATE
-After logging in, select “Create program”. Add the name, URL slug, description, welcome message and colors. Save as a draft or publish. Every published program uses templates/program.php and is available at program.php?slug=your-slug. The admin manager and public program pages use the MySQL database configured in config/secrets.php.
-
-IMPORTANT CURRENT LIMITATION
-The original index.html is still a front-end prototype. Its delegate feedback form and feedback-management view use localStorage and are not connected to the new MySQL database or admin login. Do not treat that feedback as centrally collected or protected. The PHP/MySQLi work currently provides the reusable program-page manager only.
+PROGRAMS AND FEEDBACK
+- The root page opens the first published program. The initial program is Loveword Expo 2026.
+- Sign in to create additional programs. Each gets the same Delegate Experience Centre UI, its own URL, banner, colors, and separate feedback records.
+- Edit a program to upload or remove its JPG, PNG, or WebP banner (maximum 5 MB). Banner files are stored on the cPanel account in uploads/banners; program settings and feedback records are stored in the cPanel MySQL database.
+- Public feedback is saved to the selected program. Admins can open a program's “Feedback & CSV” page to filter and review submissions or download its CSV export.
+- The current PHP app stores no application data in the browser. All application files and uploaded banners stay on the cPanel account; structured program and feedback data stays in its MySQL database.
 
 SECURITY NOTES
-- Keep config/secrets.php private and never put credentials in index.html or other browser-delivered files.
-- Use HTTPS. The default admin password is for initial setup only; replace it before public deployment.
-- The PHP starter uses prepared MySQLi statements, session-based admin authentication, CSRF tokens on state-changing forms, and HTML output escaping.
+- Never commit or place config/secrets.php in browser-accessible source. It is excluded by .gitignore and the config directory is denied by .htaccess.
+- Use HTTPS. Replace the requested initial admin password before making the site public.
+- Feedback management is admin-only; submissions are program-scoped, queries are parameterized, forms use CSRF protection, and exported CSV cells are guarded against spreadsheet formulas.
