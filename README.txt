@@ -1,7 +1,7 @@
 DELEGATE EXPERIENCE CENTRE – PHP / MYSQLI PROGRAM TEMPLATE
 
 PROJECT CONTENTS
-- index.html: redirects to the first published program page.
+- index.php: public homepage for visitors and signed-in admins. The root .htaccess selects this entry point; index.html remains a fallback redirect.
 - program.php and templates/program.php: the public Delegate Experience Centre UI used by every program.
 - admin/: admin login, program manager, per-program feedback viewer, and CSV export.
 - submit-feedback.php: validates and saves public feedback to MySQLi.

@@ -40,7 +40,10 @@ try {
   <main class="wrap">
     <div class="top">
       <div><h1>Program manager</h1><p>Create a new page from the shared program template.</p></div>
-      <form method="post" action="logout.php"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><button class="logout" type="submit">Log out</button></form>
+      <div>
+        <p><a href="../index.php">View homepage</a></p>
+        <form method="post" action="logout.php"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><button class="logout" type="submit">Log out</button></form>
+      </div>
     </div>
     <?php if ($databaseError !== ''): ?>
       <section class="error-card" role="alert">

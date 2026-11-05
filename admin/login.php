@@ -2,6 +2,8 @@
 declare(strict_types=1);
 require __DIR__ . '/../includes/bootstrap.php';
 
+header('Cache-Control: no-store');
+
 if (!empty($_SESSION['is_admin'])) {
     header('Location: programs.php');
     exit;
@@ -58,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <input id="password" name="password" type="password" autocomplete="current-password" required>
       <button class="button" type="submit">Log in</button>
     </form>
-    <a class="back" href="../index.html">Back to the prototype</a>
+    <a class="back" href="../index.php">View homepage</a>
   </main>
 </body>
 </html>
