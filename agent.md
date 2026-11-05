@@ -18,6 +18,7 @@ Delegate Experience Centre uses PHP 8.1+, MySQL/MariaDB, and the shared public U
 ## Admin and deployment
 
 - Admin username defaults to `admin`; the initial password is `admin12345`. Change it before public deployment using `ADMIN_PASSWORD_HASH` or `config/secrets.php`.
+- Keep the admin sign-in reachable at `/admin` without exposing a login link on the public program page.
 - Configure cPanel MySQL credentials in ignored `config/secrets.php`, import the appropriate schema, and ensure `uploads/banners` is writable by PHP.
 - Keep HTTPS enabled. Never commit `config/secrets.php` or real credentials.
 

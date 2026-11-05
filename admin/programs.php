@@ -3,8 +3,28 @@ declare(strict_types=1);
 require __DIR__ . '/../includes/bootstrap.php';
 require_admin();
 
-$result = db()->query('SELECT id, name, slug, status, updated_at FROM programs ORDER BY updated_at DESC');
-$programs = $result->fetch_all(MYSQLI_ASSOC);
+$programs = [];
+$databaseError = '';
+try {
+    $result = db()->query('SELECT id, name, slug, status, updated_at FROM programs ORDER BY updated_at DESC');
+    $programs = $result->fetch_all(MYSQLI_ASSOC);
+} catch (Throwable $exception) {
+    error_log('Delegate Experience Centre admin/programs.php: ' . $exception->getMessage());
+
+    if (str_contains($exception->getMessage(), 'Database is not configured')) {
+        $databaseError = 'The cPanel database settings are missing. Create config/secrets.php from config/secrets.example.php and enter the database host, full database name, full database username, and password.';
+    } elseif (class_exists('mysqli_sql_exception') && $exception instanceof mysqli_sql_exception) {
+        $databaseError = match ((int) $exception->getCode()) {
+            1045 => 'MySQL rejected the database login. Check the database username/password in config/secrets.php and confirm that the user is assigned to this database in cPanel.',
+            1049 => 'The configured MySQL database was not found. Check the full cPanel database name in config/secrets.php.',
+            1146 => 'The programs table is missing. Import database_schema_mysql.sql, or back up the existing database and run database_upgrade_v2.sql if it uses the earlier starter schema.',
+            1054 => 'The database schema is out of date. Back up the database and run database_upgrade_v2.sql in phpMyAdmin.',
+            default => 'The cPanel MySQL database could not be reached. Check config/secrets.php, the database host, and the database user privileges. The detailed error is in the cPanel PHP error log.',
+        };
+    } else {
+        $databaseError = 'The program list could not be loaded. Confirm cPanel is using PHP 8.1+ with MySQLi enabled, and check the cPanel PHP error log for details.';
+    }
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -13,7 +33,7 @@ $programs = $result->fetch_all(MYSQLI_ASSOC);
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Programs · Admin</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;background:#f2f7ff;color:#17345e;font:15px Arial,sans-serif}.wrap{max-width:1000px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.card{margin-top:20px;padding:20px;background:#fff;border:1px solid #dce6f2;border-radius:16px;overflow:auto}a,button{color:#174889}.button{display:inline-block;padding:10px 14px;border:0;border-radius:9px;background:#174889;color:#fff;text-decoration:none;font-weight:bold;cursor:pointer}.logout{padding:8px 12px;background:#fff;border:1px solid #cbd9eb;border-radius:8px}table{width:100%;border-collapse:collapse;min-width:700px}th,td{text-align:left;padding:12px;border-bottom:1px solid #e5ebf3}th{color:#6b7e98}.status{text-transform:capitalize}
+    *{box-sizing:border-box}body{margin:0;background:#f2f7ff;color:#17345e;font:15px Arial,sans-serif}.wrap{max-width:1000px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.card{margin-top:20px;padding:20px;background:#fff;border:1px solid #dce6f2;border-radius:16px;overflow:auto}.error-card{padding:18px;background:#fff7e6;border:1px solid #e9bf63;border-radius:12px;color:#5b421a;line-height:1.6}a,button{color:#174889}.button{display:inline-block;padding:10px 14px;border:0;border-radius:9px;background:#174889;color:#fff;text-decoration:none;font-weight:bold;cursor:pointer}.logout{padding:8px 12px;background:#fff;border:1px solid #cbd9eb;border-radius:8px}table{width:100%;border-collapse:collapse;min-width:700px}th,td{text-align:left;padding:12px;border-bottom:1px solid #e5ebf3}th{color:#6b7e98}.status{text-transform:capitalize}
   </style>
 </head>
 <body>
@@ -22,6 +42,13 @@ $programs = $result->fetch_all(MYSQLI_ASSOC);
       <div><h1>Program manager</h1><p>Create a new page from the shared program template.</p></div>
       <form method="post" action="logout.php"><input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>"><button class="logout" type="submit">Log out</button></form>
     </div>
+    <?php if ($databaseError !== ''): ?>
+      <section class="error-card" role="alert">
+        <h2>Database setup needs attention</h2>
+        <p><?= h($databaseError) ?></p>
+        <p>After correcting the setup, reload this page. No program records were changed.</p>
+      </section>
+    <?php else: ?>
     <a class="button" href="program-edit.php">Create program</a>
     <section class="card">
       <?php if ($programs === []): ?>
@@ -43,6 +70,7 @@ $programs = $result->fetch_all(MYSQLI_ASSOC);
         </table>
       <?php endif; ?>
     </section>
+    <?php endif; ?>
   </main>
 </body>
 </html>

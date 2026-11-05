@@ -69,7 +69,7 @@ $publicProgram = [
    <div class="actions"><button class="btn primary" id="submitFeedback" type="submit">SUBMIT FEEDBACK</button><button class="btn" type="reset">CLEAR FORM</button></div><p id="formMessage" class="section-sub" role="status" aria-live="polite"></p>
   </form>
  </section>
- <footer><em><?= h($program['platform_title']) ?></em> · <?= h($program['name']) ?> · <a href="admin/login.php">Admin</a></footer>
+  <footer><em><?= h($program['platform_title']) ?></em> · <?= h($program['name']) ?></footer>
 </div>
 <script>
 const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;

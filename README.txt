@@ -20,7 +20,7 @@ CPANEL SETUP
 5. If the database was created using the earlier starter's schema, take a backup and run database_upgrade_v2.sql once instead. Do not run the upgrade after importing the current full schema.
 6. Copy config/secrets.example.php to config/secrets.php on the cPanel account and enter the cPanel database host, full database name, full database username, and database user's password. Keep secrets.php private.
 7. Ensure uploads/banners is writable by PHP and serve the site over HTTPS.
-8. Open /admin/login.php.
+8. Open /admin to sign in.
 
 INITIAL ADMIN LOGIN
 - Username: admin

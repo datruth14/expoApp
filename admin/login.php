@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h1>Administrator login</h1>
     <p>Sign in to create and manage program pages.</p>
     <?php if ($error !== ''): ?><p class="error" role="alert"><?= h($error) ?></p><?php endif; ?>
-    <form method="post" action="login.php">
+    <form method="post">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <label for="username">Username</label>
       <input id="username" name="username" autocomplete="username" required>
