@@ -40,3 +40,9 @@ SECURITY NOTES
 - Never commit or place config/secrets.php in browser-accessible source. It is excluded by .gitignore and the config directory is denied by .htaccess.
 - Use HTTPS. Replace the requested initial admin password before making the site public.
 - Feedback management is admin-only; submissions are program-scoped, queries are parameterized, forms use CSRF protection, and exported CSV cells are guarded against spreadsheet formulas.
+
+HOMEPAGE / DATABASE TROUBLESHOOTING
+- If the homepage is unavailable, open /admin and check the program manager's database diagnostic. Confirm MySQLi (mysqli or nd_mysqli) is enabled for this domain's PHP version.
+- MySQL 1044/1045: verify the full cPanel database/user names, password, and the user's database assignment/privileges. MySQL 2002/2003/2005: verify the host/port with the hosting provider and check the MySQL service.
+- MySQL 1146/1054: import the schema or the appropriate upgrade as described above.
+- Public failures are logged with a support reference in the cPanel PHP error log and return HTTP 503 without exposing database details to visitors. A Git push alone does not configure the hosting database or run SQL imports.

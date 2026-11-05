@@ -13,14 +13,20 @@ try {
 
     if (str_contains($exception->getMessage(), 'Database is not configured')) {
         $databaseError = 'The cPanel database settings are missing. Create config/secrets.php from config/secrets.example.php and enter the database host, full database name, full database username, and password.';
+    } elseif (str_contains($exception->getMessage(), 'MySQLi PHP extension is not enabled')) {
+        $databaseError = $exception->getMessage();
     } elseif (class_exists('mysqli_sql_exception') && $exception instanceof mysqli_sql_exception) {
         $databaseError = match ((int) $exception->getCode()) {
+            1044 => 'The database user does not have access to this database. In cPanel > MySQL Databases, add the configured user to the configured database and assign the required privileges.',
             1045 => 'MySQL rejected the database login. Check the database username/password in config/secrets.php and confirm that the user is assigned to this database in cPanel.',
             1049 => 'The configured MySQL database was not found. Check the full cPanel database name in config/secrets.php.',
             1146 => 'The programs table is missing. Import database_schema_mysql.sql, or back up the existing database and run database_upgrade_v2.sql if it uses the earlier starter schema.',
             1054 => 'The database schema is out of date. Back up the database and run database_upgrade_v2.sql in phpMyAdmin.',
+            2002, 2003 => 'The MySQL server connection failed. Verify the database host and port with your cPanel provider and confirm its MySQL service is running.',
+            2005 => 'The database host could not be resolved. Use the MySQL hostname supplied by your cPanel provider in config/secrets.php.',
             default => 'The cPanel MySQL database could not be reached. Check config/secrets.php, the database host, and the database user privileges. The detailed error is in the cPanel PHP error log.',
         };
+        $databaseError .= ' MySQL error code: ' . (int) $exception->getCode() . '.';
     } else {
         $databaseError = 'The program list could not be loaded. Confirm cPanel is using PHP 8.1+ with MySQLi enabled, and check the cPanel PHP error log for details.';
     }

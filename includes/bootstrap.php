@@ -29,6 +29,10 @@ function db(): mysqli
             throw new RuntimeException('Database is not configured. Set the cPanel MySQL connection details in config/secrets.php.');
         }
 
+        if (!extension_loaded('mysqli')) {
+            throw new RuntimeException('The MySQLi PHP extension is not enabled. Enable mysqli or nd_mysqli for this domain in cPanel.');
+        }
+
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
         $connection = new mysqli(
             $settings['db_host'],
