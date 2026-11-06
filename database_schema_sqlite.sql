@@ -30,3 +30,9 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 CREATE INDEX IF NOT EXISTS feedback_program_date ON feedback (program_id, submitted_at);
 CREATE INDEX IF NOT EXISTS feedback_program_area ON feedback (program_id, service_area);
+
+CREATE TABLE IF NOT EXISTS platform_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  home_program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL
+);
+INSERT OR IGNORE INTO platform_settings (id) VALUES (1);

@@ -21,6 +21,7 @@ Delegate Experience Centre uses PHP 8.1+, MySQL/MariaDB for cPanel or SQLite for
 - Admin username defaults to `admin`; the initial password is `admin12345`. Change it before public deployment using `ADMIN_PASSWORD_HASH` or `config/secrets.php`.
 - Keep the admin sign-in reachable at `/admin` without exposing a login link on the public program page.
 - The public root (`index.php`) must remain accessible to signed-in admins. Admin authentication redirects belong only on admin routes; keep a public homepage link in the admin manager.
+- Homepage selection is stored in `platform_settings` and changed by a CSRF-protected admin POST. Only published programs can be displayed; `homepage_program()` falls back to the oldest published program if needed. Existing MySQL installations need `database_upgrade_v3.sql`; SQLite upgrades automatically to schema version 2.
 - Configure cPanel MySQL credentials in ignored `config/secrets.php`, import the appropriate schema, and ensure `uploads/banners` is writable by PHP.
 - Keep HTTPS enabled. Never commit `config/secrets.php` or real credentials.
 - Start offline with `DB_DRIVER=sqlite php -S 127.0.0.1:8000 local-router.php`. The router protects private files because PHP's built-in server ignores `.htaccess`.

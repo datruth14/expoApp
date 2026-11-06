@@ -21,6 +21,13 @@ CREATE TABLE IF NOT EXISTS programs (
   KEY programs_status_updated (status, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS platform_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  home_program_id BIGINT UNSIGNED NULL,
+  CONSTRAINT settings_home_program_fk FOREIGN KEY (home_program_id) REFERENCES programs (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT IGNORE INTO platform_settings (id) VALUES (1);
+
 CREATE TABLE IF NOT EXISTS feedback (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   program_id BIGINT UNSIGNED NOT NULL,

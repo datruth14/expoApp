@@ -5,8 +5,8 @@ try {
 
     $slug = trim((string) ($_GET['slug'] ?? ''));
     if ($slug === '') {
-        $firstProgram = db()->query("SELECT slug FROM programs WHERE status = 'published' ORDER BY id LIMIT 1")->fetch();
-        $slug = (string) ($firstProgram['slug'] ?? '');
+        $homeProgram = homepage_program();
+        $slug = (string) ($homeProgram['slug'] ?? '');
     }
     if ($slug === '' || !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {
         http_response_code(404);

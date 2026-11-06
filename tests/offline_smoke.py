@@ -109,6 +109,21 @@ def run():
             assert request("/" + banner_path)[0] == 200
             _, second_home, _ = request("/program.php?slug=offline-second")
             assert banner_path in second_home
+            # Upgrade an existing offline database without losing user-created programs.
+            with sqlite3.connect(database) as connection:
+                connection.execute('DROP TABLE platform_settings')
+                connection.execute('PRAGMA user_version = 1')
+            assert 'Loveword Expo 2026' in request('/')[1]
+            with sqlite3.connect(database) as connection:
+                assert connection.execute('SELECT COUNT(*) FROM programs').fetchone()[0] == 2
+                assert connection.execute('PRAGMA user_version').fetchone()[0] == 2
+            assert request('/admin/programs.php', {'csrf_token': 'invalid', 'home_program_id': second_id})[0] == 400
+            status, selected, _ = request('/admin/programs.php', {
+                'csrf_token': token(dashboard), 'home_program_id': second_id,
+            })
+            assert status == 200 and 'The homepage program has been updated.' in selected, selected
+            assert 'Offline second program' in request('/')[1]
+            assert 'Loveword Expo 2026' in request('/program.php?slug=loveword-expo-2026')[1]
             _, editor, _ = request(f"/admin/program-edit.php?id={second_id}")
             fields["csrf_token"] = token(editor)
             fields["welcome_message"] = "Updated offline welcome"
@@ -141,9 +156,19 @@ def run():
             assert rows[1][5] == "'=1+1", rows
             assert "Private name" not in exported
             assert len(list(csv.reader(io.StringIO(request("/admin/export-feedback.php?program_id=1")[1])))) == 1
+            fields['status'] = 'draft'
+            request(f'/admin/program-edit.php?id={second_id}', fields)
+            assert 'Loveword Expo 2026' in request('/')[1], 'Homepage must not display a draft'
+            assert request('/admin/programs.php', {
+                'csrf_token': token(dashboard), 'home_program_id': second_id,
+            })[0] == 422
+            fields['status'] = 'published'
+            request(f'/admin/program-edit.php?id={second_id}', fields)
             request("/admin/logout.php", {"csrf_token": token(dashboard)})
             assert request(f"/admin/export-feedback.php?program_id={second_id}")[2].endswith("/admin/login.php")
-            print("PASS: offline initialization, login, public homepage, program create/edit, banner upload, feedback persistence/validation, anonymity, program separation, CSV export, logout, and private-file protection.")
+            assert 'Offline second program' in request('/')[1], 'Public visitors must see the selected homepage'
+            assert request('/admin/programs.php', {'home_program_id': 1})[2].endswith('/admin/login.php')
+            print("PASS: offline initialization/upgrade, admin login, homepage selection and draft fallback, program create/edit, banner upload, feedback persistence/validation, anonymity, program separation, CSV export, logout, and private-file protection.")
         finally:
             server.terminate()
             server.wait(timeout=10)

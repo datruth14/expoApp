@@ -65,20 +65,23 @@ function open_sqlite_database(string $path): AppDatabase
     $connection = new PDO('sqlite:' . $path, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     $connection->exec('PRAGMA foreign_keys = ON');
     $connection->exec('PRAGMA busy_timeout = 5000');
-    if ((int) $connection->query('PRAGMA user_version')->fetchColumn() < 1) {
+    $version = (int) $connection->query('PRAGMA user_version')->fetchColumn();
+    if ($version < 2) {
         $connection->beginTransaction();
         try {
             $connection->exec(file_get_contents(__DIR__ . '/../database_schema_sqlite.sql'));
-            $seed = $connection->prepare('INSERT OR IGNORE INTO programs (name, slug, platform_title, tagline, description, welcome_message, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-            $seed->execute([
-                'Loveword Expo 2026', 'loveword-expo-2026', 'Delegate Experience Centre',
-                'Where the World Meets Loveworld',
-                'A seamless, welcoming and memorable event experience starts here.',
-                'A seamless, welcoming and memorable event experience starts here.',
-                json_encode(default_program_services(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-                'published',
-            ]);
-            $connection->exec('PRAGMA user_version = 1');
+            if ($version < 1) {
+                $seed = $connection->prepare('INSERT OR IGNORE INTO programs (name, slug, platform_title, tagline, description, welcome_message, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+                $seed->execute([
+                    'Loveword Expo 2026', 'loveword-expo-2026', 'Delegate Experience Centre',
+                    'Where the World Meets Loveworld',
+                    'A seamless, welcoming and memorable event experience starts here.',
+                    'A seamless, welcoming and memorable event experience starts here.',
+                    json_encode(default_program_services(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                    'published',
+                ]);
+            }
+            $connection->exec('PRAGMA user_version = 2');
             $connection->commit();
         } catch (Throwable $exception) {
             $connection->rollBack();

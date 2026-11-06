@@ -16,7 +16,7 @@ MOVING TO LIVE CPANEL
 - Keep the SQLite .db file private and out of Git. It is ignored; the SQL schema and automatic initialization code are committed instead.
 
 PROJECT CONTENTS
-- index.php: public homepage for visitors and signed-in admins. The root .htaccess selects this entry point; index.html remains a fallback redirect.
+- index.php: displays the admin-selected homepage program for visitors and signed-in admins. The root .htaccess selects this entry point; index.html remains a fallback redirect.
 - program.php and templates/program.php: the public Delegate Experience Centre UI used by every program.
 - admin/: admin login, program manager, per-program feedback viewer, and CSV export.
 - submit-feedback.php: validates and saves public feedback to MySQLi.
@@ -28,6 +28,7 @@ PROJECT CONTENTS
 - storage/experience.db: automatically created offline SQLite database (not committed).
 - local-router.php: offline PHP-server router that blocks access to private files.
 - database_upgrade_v2.sql: one-time migration for databases made from the earlier starter schema.
+- database_upgrade_v3.sql: adds persistent homepage selection to an existing MySQL database.
 - database_schema_postgresql.sql: original PostgreSQL proposal, retained for reference only.
 - agent.md: project conventions for future work.
 
@@ -36,7 +37,7 @@ CPANEL SETUP
 2. Upload the project files to your cPanel account, normally under public_html (or the document root assigned to your domain). Keep the directory structure intact.
 3. In cPanel > MySQL Databases, create a database and database user, assign the user to the database with the required privileges, and note the full prefixed names and database host.
 4. For a new database, import database_schema_mysql.sql through phpMyAdmin. It creates the tables and the first published program, “Loveword Expo 2026”.
-5. If the database was created using the earlier starter's schema, take a backup and run database_upgrade_v2.sql once instead. Do not run the upgrade after importing the current full schema.
+5. For an existing database, take a backup. Run database_upgrade_v2.sql once if it still uses the earlier starter's schema, then import database_upgrade_v3.sql to enable homepage selection. A new database created from the current full schema needs neither upgrade. Existing SQLite databases upgrade automatically on the next request.
 6. Copy config/secrets.example.php to config/secrets.php on the cPanel account and enter the cPanel database host, full database name, full database username, and database user's password. Keep secrets.php private.
 7. Ensure uploads/banners is writable by PHP and serve the site over HTTPS.
 8. Open /admin to sign in.
@@ -49,7 +50,8 @@ INITIAL ADMIN LOGIN
   Set it as ADMIN_PASSWORD_HASH in the hosting environment or as admin_password_hash in config/secrets.php.
 
 PROGRAMS AND FEEDBACK
-- The root page opens the first published program. The initial program is Loveword Expo 2026.
+- In /admin, open the program manager and click “Set as homepage” beside a published program. That program immediately appears at the site root (experience.ministryprograms.org) for visitors. The selection is saved in the database and marked “Homepage” in the manager.
+- The initial homepage is Loveword Expo 2026. If no homepage is selected, or the selected program becomes a draft, the oldest published program is shown instead. Draft programs cannot be selected as the homepage. Other published programs remain available at their own program.php?slug= URLs.
 - Sign in to create additional programs. Each gets the same Delegate Experience Centre UI, its own URL, banner, colors, and separate feedback records.
 - Edit a program to upload or remove its JPG, PNG, or WebP banner (maximum 5 MB). Banner files are stored on the cPanel account in uploads/banners; program settings and feedback records are stored in the cPanel MySQL database.
 - Public feedback is saved to the selected program. Admins can open a program's “Feedback & CSV” page to filter and review submissions or download its CSV export.

@@ -5,7 +5,26 @@ require_admin();
 
 $programs = [];
 $databaseError = '';
+$selectionError = '';
+$homeProgram = false;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verify_csrf();
+}
 try {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $programId = filter_var($_POST['home_program_id'] ?? null, FILTER_VALIDATE_INT);
+        $candidate = $programId ? db()->query("SELECT id FROM programs WHERE id = ? AND status = 'published'", [$programId])->fetch() : false;
+        if (!$candidate) {
+            http_response_code(422);
+            $selectionError = 'Choose a published program for the homepage. Publish drafts before selecting them.';
+        } else {
+            db()->query('UPDATE platform_settings SET home_program_id = ? WHERE id = 1', [$programId]);
+            $_SESSION['program_notice'] = 'The homepage program has been updated.';
+            header('Location: programs.php');
+            exit;
+        }
+    }
+    $homeProgram = homepage_program();
     $result = db()->query('SELECT id, name, slug, status, updated_at FROM programs ORDER BY updated_at DESC');
     $programs = $result->fetchAll();
 } catch (Throwable $exception) {
@@ -20,7 +39,7 @@ try {
             1044 => 'The database user does not have access to this database. In cPanel > MySQL Databases, add the configured user to the configured database and assign the required privileges.',
             1045 => 'MySQL rejected the database login. Check the database username/password in config/secrets.php and confirm that the user is assigned to this database in cPanel.',
             1049 => 'The configured MySQL database was not found. Check the full cPanel database name in config/secrets.php.',
-            1146 => 'The programs table is missing. Import database_schema_mysql.sql, or back up the existing database and run database_upgrade_v2.sql if it uses the earlier starter schema.',
+            1146 => 'A database table is missing. For an existing installation, import database_upgrade_v3.sql to enable homepage selection (run the v2 upgrade first if still needed). For a new database, import database_schema_mysql.sql.',
             1054 => 'The database schema is out of date. Back up the database and run database_upgrade_v2.sql in phpMyAdmin.',
             2002, 2003 => 'The MySQL server connection failed. Verify the database host and port with your cPanel provider and confirm its MySQL service is running.',
             2005 => 'The database host could not be resolved. Use the MySQL hostname supplied by your cPanel provider in config/secrets.php.',
@@ -31,6 +50,8 @@ try {
         $databaseError = 'The program list could not be loaded. Confirm cPanel is using PHP 8.1+ with MySQLi enabled, and check the cPanel PHP error log for details.';
     }
 }
+$notice = (string) ($_SESSION['program_notice'] ?? '');
+unset($_SESSION['program_notice']);
 ?>
 <!doctype html>
 <html lang="en">
@@ -58,6 +79,9 @@ try {
         <p>After correcting the setup, reload this page. No program records were changed.</p>
       </section>
     <?php else: ?>
+    <?php if ($notice !== ''): ?><p role="status"><?= h($notice) ?></p><?php endif; ?>
+    <?php if ($selectionError !== ''): ?><p class="error-card" role="alert"><?= h($selectionError) ?></p><?php endif; ?>
+    <p><strong>Current homepage:</strong> <?= $homeProgram ? h($homeProgram['name']) : 'No published program' ?>. Choose a published program below to change what visitors see at the site address.</p>
     <a class="button" href="program-edit.php">Create program</a>
     <section class="card">
       <?php if ($programs === []): ?>
@@ -68,11 +92,19 @@ try {
           <tbody>
           <?php foreach ($programs as $program): ?>
             <tr>
-              <td><?= h($program['name']) ?></td>
+              <td><?= h($program['name']) ?><?php if ($homeProgram && (int) $program['id'] === (int) $homeProgram['id']): ?><br><strong>Homepage</strong><?php endif; ?></td>
               <td><?= h($program['slug']) ?></td>
               <td class="status"><?= h($program['status']) ?></td>
               <td><?= h($program['updated_at']) ?></td>
-              <td><a href="program-edit.php?id=<?= (int) $program['id'] ?>">Edit</a> · <a href="feedback.php?program_id=<?= (int) $program['id'] ?>">Feedback &amp; CSV</a><?php if ($program['status'] === 'published'): ?> · <a href="../program.php?slug=<?= rawurlencode($program['slug']) ?>" target="_blank" rel="noopener">View</a><?php endif; ?></td>
+              <td><a href="program-edit.php?id=<?= (int) $program['id'] ?>">Edit</a> · <a href="feedback.php?program_id=<?= (int) $program['id'] ?>">Feedback &amp; CSV</a><?php if ($program['status'] === 'published'): ?> · <a href="../program.php?slug=<?= rawurlencode($program['slug']) ?>" target="_blank" rel="noopener">View</a>
+                <?php if (!$homeProgram || (int) $program['id'] !== (int) $homeProgram['id']): ?>
+                <form method="post" action="programs.php" style="margin-top:10px">
+                  <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                  <input type="hidden" name="home_program_id" value="<?= (int) $program['id'] ?>">
+                  <button class="button" type="submit">Set as homepage</button>
+                </form>
+                <?php endif; ?>
+              <?php endif; ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>

@@ -82,6 +82,12 @@ function require_admin(): void
     }
 }
 
+function homepage_program(): array|false
+{
+    // A draft can never be the public homepage. Fall back if the selection is unpublished.
+    return db()->query("SELECT id, name, slug FROM programs WHERE status = 'published' ORDER BY CASE WHEN id = (SELECT home_program_id FROM platform_settings WHERE id = 1) THEN 0 ELSE 1 END, id LIMIT 1")->fetch();
+}
+
 function default_program_services(): array
 {
     return [
