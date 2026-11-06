@@ -76,10 +76,31 @@ def run():
                            KINGSCHAT_CLIENT_ID='test-client', KINGSCHAT_API_KEY='test-api-key',
                            KINGSCHAT_API_BASE_URL=f'http://127.0.0.1:{provider.server_port}')
         php_options = ['-d', 'disable_classes=finfo'] if os.environ.get('TEST_WITHOUT_FILEINFO') == '1' else []
-        server = subprocess.Popen(
-            ["php", *php_options, "-S", f"127.0.0.1:{port}", "local-router.php"],
-            cwd=ROOT, env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        def launch(config):
+            return subprocess.Popen(
+                ["php", *php_options, "-S", f"127.0.0.1:{port}", "local-router.php"],
+                cwd=ROOT, env=config, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+
+        server = launch(environment)
+
+        def wait_for_server():
+            for _ in range(100):
+                try:
+                    with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                        return
+                except OSError:
+                    if server.poll() is not None:
+                        raise RuntimeError("PHP server did not start")
+                    time.sleep(0.05)
+            raise RuntimeError('PHP server did not become ready')
+
+        def restart(config):
+            nonlocal server
+            server.terminate()
+            server.wait(timeout=10)
+            server = launch(config)
+            wait_for_server()
         cookies = http.cookiejar.CookieJar()
         client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
         no_redirect_client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies), NoRedirect())
@@ -125,14 +146,7 @@ def run():
             return request('/delegate-callback.php?' + urllib.parse.urlencode({'origin': state, 'code': code}))
 
         try:
-            for _ in range(100):
-                try:
-                    with socket.create_connection(("127.0.0.1", port), timeout=0.1):
-                        break
-                except OSError:
-                    if server.poll() is not None:
-                        raise RuntimeError("PHP server did not start")
-                    time.sleep(0.05)
+            wait_for_server()
             status, home, _ = request("/")
             assert status == 200 and "Loveword Expo 2026" in home, home
             assert 'href="admin' not in home and "localStorage" not in home
@@ -151,7 +165,8 @@ def run():
             unavailable = subprocess.run(['php', '-r',
                 '$_SERVER["REQUEST_METHOD"]="GET"; $_GET=["program"=>"loveword-expo-2026", "area"=>"Overall event experience"]; register_shutdown_function(static function () { fwrite(STDERR, "HTTP=" . http_response_code()); }); require "delegate-login.php";'],
                 cwd=ROOT, env=unavailable_environment, text=True, capture_output=True, check=True)
-            assert 'HTTP=503' in unavailable.stderr and 'KingsChat sign-in is not available yet' in unavailable.stdout
+            assert 'name="phone"' in unavailable.stdout and 'Temporary access uses the details you provide' in unavailable.stdout
+            assert 'HTTP=503' not in unavailable.stderr
             blocked_mock = subprocess.run(['php', '-r',
                 'require "includes/bootstrap.php"; try { kingschat_api_request("/developer/api/user/profile"); exit(1); } catch (RuntimeException $error) { echo $error->getMessage(); }'],
                 cwd=ROOT, env=dict(environment, APP_ENV='production'), text=True, capture_output=True, check=True)
@@ -207,7 +222,7 @@ def run():
             assert 'Loveword Expo 2026' in request('/')[1]
             with sqlite3.connect(database) as connection:
                 assert connection.execute('SELECT COUNT(*) FROM programs').fetchone()[0] == 2
-                assert connection.execute('PRAGMA user_version').fetchone()[0] == 3
+                assert connection.execute('PRAGMA user_version').fetchone()[0] == 4
                 assert connection.execute('SELECT went_well, delegate_id FROM feedback').fetchall() == [('Legacy feedback', None)]
                 connection.execute('DELETE FROM feedback')
             assert request('/admin/programs.php', {'csrf_token': 'invalid', 'home_program_id': second_id})[0] == 400
@@ -277,7 +292,7 @@ def run():
             identified.pop('anonymous')
             assert request('/submit-feedback.php', identified)[0] == 201
             identified_csv = list(csv.reader(io.StringIO(request(f'/admin/export-feedback.php?program_id={second_id}')[1])))
-            assert any(row[2] == 'Verified Delegate' and row[-1] == 'verified.delegate' for row in identified_csv[1:])
+            assert any(row[2] == 'Verified Delegate' and row[-2] == 'verified.delegate' and row[-1] == 'KingsChat verified' for row in identified_csv[1:])
             assert 'Forged name' not in str(identified_csv)
             assert len(list(csv.reader(io.StringIO(request("/admin/export-feedback.php?program_id=1")[1])))) == 1
             fields['status'] = 'draft'
@@ -298,7 +313,77 @@ def run():
             time.sleep(1.1)
             assert request('/submit-feedback.php', feedback)[0] == 401, 'Expired delegate session must be rejected'
             assert request('/')[0] == 200, 'Expired sessions must still be able to browse'
-            print("PASS: offline initialization/upgrade, admin/delegate separation, KingsChat code/profile verification and invalid callbacks, session expiry, homepage selection, program/banner management, feedback authentication/privacy/CSV, and private-file protection.")
+
+            # Simulate the previous delegate schema with real linked feedback.
+            # The v4 SQLite rebuild must preserve provider IDs and associations.
+            with sqlite3.connect(database) as connection:
+                old_links = connection.execute('SELECT id, delegate_id FROM feedback ORDER BY id').fetchall()
+                connection.executescript('''
+                    CREATE TABLE delegates_previous (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT, kingschat_user_id TEXT NOT NULL UNIQUE,
+                      handle TEXT NOT NULL, display_name TEXT NOT NULL,
+                      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                    INSERT INTO delegates_previous (id, kingschat_user_id, handle, display_name, created_at, updated_at)
+                    SELECT id, kingschat_user_id, handle, display_name, created_at, updated_at FROM delegates;
+                    DROP TABLE delegates;
+                    ALTER TABLE delegates_previous RENAME TO delegates;
+                    PRAGMA user_version = 3;
+                ''')
+            restart(unavailable_environment)
+            _, fallback_home, _ = request('/program.php?slug=offline-second&area=Food%20Court%20Experience')
+            assert 'Enter username and phone' in fallback_home
+            with sqlite3.connect(database) as connection:
+                assert connection.execute('PRAGMA user_version').fetchone()[0] == 4
+                assert connection.execute('PRAGMA foreign_key_check').fetchall() == []
+                assert connection.execute('SELECT id, delegate_id FROM feedback ORDER BY id').fetchall() == old_links
+                assert connection.execute('SELECT kingschat_user_id, auth_method FROM delegates').fetchall() == [('kc-test-user-1', 'kingschat')]
+
+            fallback_path = '/delegate-login.php?program=offline-second&area=Food%20Court%20Experience'
+            status, manual_form, _ = request(fallback_path)
+            assert status == 200 and 'name="username"' in manual_form and 'name="phone"' in manual_form
+            manual_fields = {'csrf_token': token(manual_form), 'program': 'offline-second', 'area': 'Food Court Experience',
+                             'username': '@Verified.Delegate', 'phone': '+234 (801) 234-5678'}
+            assert request('/delegate-login.php', dict(manual_fields, csrf_token='bad'))[0] == 400
+            assert request('/delegate-login.php', dict(manual_fields, phone='not-a-phone'))[0] == 422
+            assert request('/delegate-login.php', dict(manual_fields, username='<script>'))[0] == 422
+            provider_calls_before = len(KingsChatMock.calls)
+            status, manual_page, destination = request('/delegate-login.php', manual_fields)
+            assert status == 200 and 'Temporary access as' in manual_page and '(unverified)' in manual_page
+            assert 'area=Food%20Court%20Experience' in destination
+            assert '+2348012345678' not in manual_page
+            with sqlite3.connect(database) as connection:
+                manual_id, provider_id, phone = connection.execute("SELECT id, kingschat_user_id, phone FROM delegates WHERE auth_method = 'manual'").fetchone()
+                assert provider_id is None and phone == '+2348012345678'
+                assert manual_id != delegate_id, 'A matching typed username must not overwrite a verified account'
+            manual_feedback = dict(identified, csrf_token=token(manual_page), comments='Temporary delegate feedback')
+            assert request('/submit-feedback.php', manual_feedback)[0] == 201
+            _, admin_login, _ = request('/admin/')
+            _, manual_dashboard, _ = request('/admin/', {'csrf_token': token(admin_login), 'username': 'admin', 'password': 'admin12345'})
+            manual_csv = request(f'/admin/export-feedback.php?program_id={second_id}')[1]
+            assert any(row[-1] == 'Manual (unverified)' and row[-2] == 'verified.delegate' for row in csv.reader(io.StringIO(manual_csv)))
+            assert '+2348012345678' not in manual_csv
+            assert 'Manual (unverified)' in request(f'/admin/feedback.php?program_id={second_id}')[1]
+            request('/delegate-logout.php', {'csrf_token': token(manual_dashboard)})
+            request('/delegate-login.php', manual_fields)
+            with sqlite3.connect(database) as connection:
+                assert connection.execute("SELECT id FROM delegates WHERE auth_method = 'manual'").fetchall() == [(manual_id,)], 'Repeated normalized details should reuse the manual record'
+            assert len(KingsChatMock.calls) == provider_calls_before, 'Manual access must not contact KingsChat'
+
+            # A Client ID alone is insufficient; complete credentials enable KC.
+            restart(dict(unavailable_environment, KINGSCHAT_CLIENT_ID='test-client'))
+            assert 'Temporary access as' in request('/program.php?slug=offline-second&area=Food%20Court%20Experience')[1]
+            restart(environment)
+            assert request('/submit-feedback.php', manual_feedback)[0] == 401, 'Activation must reject existing manual sessions'
+            status, _, next_login = request('/delegate-login.php', manual_fields, follow=False)
+            assert status == 303 and next_login.startswith('delegate-login.php?'), next_login
+            assert 'Continue with KingsChat' in request('/program.php?slug=offline-second&area=Food%20Court%20Experience')[1]
+            assert complete_sign_in(begin_sign_in())[0] == 200
+            with sqlite3.connect(database) as connection:
+                assert connection.execute('SELECT COUNT(*) FROM delegates').fetchone()[0] == 2
+                assert connection.execute('SELECT delegate_id FROM feedback WHERE comments = ?', ('Temporary delegate feedback',)).fetchone()[0] == manual_id
+            print("PASS: public browsing, KingsChat verification, unverified username/phone fallback, automatic activation and stale-session rejection, legacy migrations, identity separation, feedback/privacy/CSV, program/banner management, and private-file protection.")
         finally:
             server.terminate()
             server.wait(timeout=10)

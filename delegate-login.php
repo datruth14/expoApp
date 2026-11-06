@@ -4,14 +4,18 @@ require __DIR__ . '/includes/bootstrap.php';
 header('Cache-Control: no-store');
 header('Referrer-Policy: no-referrer');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    header('Allow: GET');
+if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'], true)) {
+    header('Allow: GET, POST');
     http_response_code(405);
     exit('Method not allowed.');
 }
 
-$slug = is_string($_GET['program'] ?? null) ? $_GET['program'] : '';
-$area = is_string($_GET['area'] ?? null) ? $_GET['area'] : '';
+$input = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verify_csrf();
+}
+$slug = is_string($input['program'] ?? null) ? $input['program'] : '';
+$area = is_string($input['area'] ?? null) ? $input['area'] : '';
 $program = db()->query("SELECT slug, services_json FROM programs WHERE slug = ? AND status = 'published'", [$slug])->fetch();
 if (!$program) {
     http_response_code(404);
@@ -29,9 +33,42 @@ if (current_delegate()) {
     exit;
 }
 if (!kingschat_configured()) {
-    http_response_code(503);
-    $loginError = 'KingsChat sign-in is not available yet. Please contact the event team.';
-    require __DIR__ . '/templates/delegate-login-error.php';
+    $manualError = '';
+    $handle = '';
+    $phone = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $handle = is_string($_POST['username'] ?? null) ? strtolower(ltrim(trim($_POST['username']), '@')) : '';
+        $phone = is_string($_POST['phone'] ?? null) ? trim($_POST['phone']) : '';
+        $normalizedPhone = preg_replace('/[\s()\-]/', '', $phone);
+        if (!preg_match('/^[a-z0-9][a-z0-9._-]{1,62}[a-z0-9_-]$/', $handle)) {
+            http_response_code(422);
+            $manualError = 'Enter a username of 3–64 characters using letters, numbers, dots, underscores, or hyphens.';
+        } elseif (!preg_match('/^\+[1-9][0-9]{6,14}$/', $normalizedPhone)) {
+            http_response_code(422);
+            $manualError = 'Enter a valid phone number with country code, for example +2348012345678.';
+        } else {
+            try {
+                $delegateId = save_manual_delegate($handle, $normalizedPhone);
+                session_regenerate_id(true);
+                $_SESSION['delegate_id'] = $delegateId;
+                $_SESSION['delegate_expires_at'] = time() + 8 * 60 * 60;
+                header('Location: ' . $backUrl, true, 303);
+                exit;
+            } catch (Throwable $exception) {
+                $reference = bin2hex(random_bytes(6));
+                error_log('Delegate Experience Centre manual access [' . $reference . ']: ' . get_class($exception) . ' code ' . $exception->getCode());
+                http_response_code(503);
+                $manualError = 'We could not save your details. Please try again. Support reference: ' . $reference;
+            }
+        }
+    }
+    require __DIR__ . '/templates/delegate-manual-login.php';
+    exit;
+}
+
+// A fallback form opened before activation cannot create another manual session.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Location: ' . delegate_login_url($slug, $area), true, 303);
     exit;
 }
 

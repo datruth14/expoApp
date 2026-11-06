@@ -24,7 +24,9 @@ if ($submittedToken === '' || !hash_equals(csrf_token(), $submittedToken)) {
 
 $delegate = current_delegate();
 if (!$delegate) {
-    respond(401, ['ok' => false, 'message' => 'Please sign in with KingsChat before submitting feedback.']);
+    respond(401, ['ok' => false, 'message' => kingschat_configured()
+        ? 'Please sign in with KingsChat before submitting feedback.'
+        : 'Please enter your username and phone number before submitting feedback.']);
 }
 
 $slug = trim((string) ($_POST['program_slug'] ?? ''));

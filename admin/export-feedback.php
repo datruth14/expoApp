@@ -11,7 +11,7 @@ if (!$program) {
     exit('Program not found.');
 }
 
-$rows = $connection->query('SELECT f.submitted_at, f.service_area, f.rating, f.delegate_name, f.is_anonymous, f.went_well, f.comments, d.handle FROM feedback f LEFT JOIN delegates d ON d.id = f.delegate_id WHERE f.program_id = ? ORDER BY f.submitted_at DESC', [$programId]);
+$rows = $connection->query('SELECT f.submitted_at, f.service_area, f.rating, f.delegate_name, f.is_anonymous, f.went_well, f.comments, d.handle, d.auth_method FROM feedback f LEFT JOIN delegates d ON d.id = f.delegate_id WHERE f.program_id = ? ORDER BY f.submitted_at DESC', [$programId]);
 
 $filename = preg_replace('/[^a-z0-9-]+/i', '-', $program['slug']) . '-feedback.csv';
 header('Content-Type: text/csv; charset=utf-8');
@@ -28,7 +28,7 @@ $safeCell = static function (mixed $value): string {
     return $value;
 };
 
-fputcsv($output, ['Submitted at', 'Program', 'Delegate', 'Service area', 'Rating', 'What went well', 'Comments', 'KingsChat handle'], ',', '"', '\\');
+fputcsv($output, ['Submitted at', 'Program', 'Delegate', 'Service area', 'Rating', 'What went well', 'Comments', 'KingsChat handle / supplied username', 'Access method'], ',', '"', '\\');
 while ($row = $rows->fetch()) {
     fputcsv($output, [
         $safeCell($row['submitted_at']),
@@ -39,6 +39,7 @@ while ($row = $rows->fetch()) {
         $safeCell($row['went_well']),
         $safeCell($row['comments']),
         $safeCell(!empty($row['is_anonymous']) ? '' : ($row['handle'] ?? '')),
+        delegate_auth_label($row['auth_method']),
     ], ',', '"', '\\');
 }
 fclose($output);

@@ -66,7 +66,10 @@ function open_sqlite_database(string $path): AppDatabase
     $connection->exec('PRAGMA foreign_keys = ON');
     $connection->exec('PRAGMA busy_timeout = 5000');
     $version = (int) $connection->query('PRAGMA user_version')->fetchColumn();
-    if ($version < 3) {
+    if ($version < 4) {
+        // SQLite needs a table rebuild to make the provider ID nullable. Disable
+        // FK actions only for this migration so linked feedback cannot cascade.
+        $connection->exec('PRAGMA foreign_keys = OFF');
         $connection->beginTransaction();
         try {
             if ($version >= 1) {
@@ -74,6 +77,10 @@ function open_sqlite_database(string $path): AppDatabase
                 if ($columns && !in_array('delegate_id', array_column($columns, 'name'), true)) {
                     $connection->exec('ALTER TABLE feedback ADD COLUMN delegate_id INTEGER REFERENCES delegates(id) ON DELETE SET NULL');
                 }
+            }
+            $delegateColumns = $connection->query('PRAGMA table_info(delegates)')->fetchAll(PDO::FETCH_ASSOC);
+            if ($delegateColumns && !in_array('auth_method', array_column($delegateColumns, 'name'), true)) {
+                $connection->exec(file_get_contents(__DIR__ . '/../database_upgrade_sqlite_v4.sql'));
             }
             $connection->exec(file_get_contents(__DIR__ . '/../database_schema_sqlite.sql'));
             if ($version < 1) {
@@ -87,11 +94,16 @@ function open_sqlite_database(string $path): AppDatabase
                     'published',
                 ]);
             }
-            $connection->exec('PRAGMA user_version = 3');
+            if ($connection->query('PRAGMA foreign_key_check')->fetch()) {
+                throw new RuntimeException('SQLite upgrade found invalid foreign-key references.');
+            }
+            $connection->exec('PRAGMA user_version = 4');
             $connection->commit();
         } catch (Throwable $exception) {
             $connection->rollBack();
             throw $exception;
+        } finally {
+            $connection->exec('PRAGMA foreign_keys = ON');
         }
     }
 

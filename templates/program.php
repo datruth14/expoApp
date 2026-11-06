@@ -61,15 +61,15 @@ $publicProgram = [
   <h2 class="section-title">DELEGATE FEEDBACK</h2><p class="section-sub">Your feedback helps the event team improve the delegate experience.</p>
   <div class="panel<?= $delegate ? ' hidden' : '' ?>" id="delegateGate">
    <h3>Sign in to share feedback</h3>
-   <p id="delegateGateMessage">Continue with KingsChat to verify your account, then return to this service’s feedback form.</p>
-   <a class="btn primary" id="delegateSignin" href="<?= h(delegate_login_url($program['slug'], $requestedArea ?: 'Overall event experience')) ?>" style="display:inline-block;text-decoration:none">Continue with KingsChat</a>
+   <p id="delegateGateMessage"><?= kingschat_configured() ? 'Continue with KingsChat to verify your account, then return to this service’s feedback form.' : 'Enter your username and phone number for temporary access to this service’s feedback form.' ?></p>
+   <a class="btn primary" id="delegateSignin" href="<?= h(delegate_login_url($program['slug'], $requestedArea ?: 'Overall event experience')) ?>" style="display:inline-block;text-decoration:none"><?= kingschat_configured() ? 'Continue with KingsChat' : 'Enter username and phone' ?></a>
   </div>
   <?php if ($delegate): ?>
   <div class="panel" style="margin-bottom:14px">
-   <p>Signed in with KingsChat as <strong>@<?= h($delegate['handle']) ?></strong></p>
+   <p><?= $delegate['auth_method'] === 'manual' ? 'Temporary access as' : 'Signed in with KingsChat as' ?> <strong>@<?= h($delegate['handle']) ?></strong><?php if ($delegate['auth_method'] === 'manual'): ?> <small>(unverified)</small><?php endif; ?></p>
    <form method="post" action="delegate-logout.php">
     <input type="hidden" name="csrf_token" value="<?= h($feedbackCsrf) ?>">
-    <button class="btn" type="submit">Sign out of KingsChat on this site</button>
+    <button class="btn" type="submit">Sign out on this site</button>
    </form>
   </div>
   <?php endif; ?>

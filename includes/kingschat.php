@@ -4,7 +4,7 @@ declare(strict_types=1);
 function kingschat_configured(): bool
 {
     global $settings;
-    return $settings['kingschat_client_id'] !== '' && $settings['kingschat_api_key'] !== '';
+    return trim($settings['kingschat_client_id']) !== '' && trim($settings['kingschat_api_key']) !== '';
 }
 
 function current_delegate(): array|false
@@ -13,7 +13,39 @@ function current_delegate(): array|false
         unset($_SESSION['delegate_id'], $_SESSION['delegate_expires_at']);
         return false;
     }
-    return db()->query('SELECT id, kingschat_user_id, handle, display_name FROM delegates WHERE id = ?', [(int) $_SESSION['delegate_id']])->fetch();
+    $delegate = db()->query('SELECT id, kingschat_user_id, handle, display_name, auth_method FROM delegates WHERE id = ?', [(int) $_SESSION['delegate_id']])->fetch();
+    // Once configured, KingsChat is mandatory even for already-open fallback sessions.
+    if (!$delegate || ($delegate['auth_method'] === 'manual' && kingschat_configured())) {
+        unset($_SESSION['delegate_id'], $_SESSION['delegate_expires_at']);
+        return false;
+    }
+    return $delegate;
+}
+
+function delegate_auth_label(?string $method): string
+{
+    return match ($method) {
+        'kingschat' => 'KingsChat verified',
+        'manual' => 'Manual (unverified)',
+        default => 'Legacy / unidentified',
+    };
+}
+
+function save_manual_delegate(string $handle, string $phone): int
+{
+    global $settings;
+    if (kingschat_configured()) {
+        throw new RuntimeException('Manual access is disabled when KingsChat is configured.');
+    }
+    // Self-reported pairs never create or update verified KingsChat identities.
+    $key = hash('sha256', $handle . "\0" . $phone);
+    $sql = "INSERT INTO delegates (handle, display_name, phone, manual_login_key, auth_method) VALUES (?, ?, ?, ?, 'manual')";
+    $sql .= $settings['db_driver'] === 'sqlite'
+        ? ' ON CONFLICT(manual_login_key) DO UPDATE SET updated_at = CURRENT_TIMESTAMP'
+        : ' ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP';
+    db()->query($sql, [$handle, $handle, $phone, $key]);
+    $delegate = db()->query("SELECT id FROM delegates WHERE manual_login_key = ? AND auth_method = 'manual'", [$key])->fetch();
+    return (int) $delegate['id'];
 }
 
 function feedback_return_url(string $slug, string $area): string

@@ -19,7 +19,10 @@ CREATE INDEX IF NOT EXISTS programs_status_updated ON programs (status, updated_
 
 CREATE TABLE IF NOT EXISTS delegates (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  kingschat_user_id TEXT NOT NULL UNIQUE,
+  kingschat_user_id TEXT UNIQUE,
+  auth_method TEXT NOT NULL DEFAULT 'kingschat' CHECK (auth_method IN ('kingschat', 'manual')),
+  phone TEXT,
+  manual_login_key TEXT UNIQUE,
   handle TEXT NOT NULL,
   display_name TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

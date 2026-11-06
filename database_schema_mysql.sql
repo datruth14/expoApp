@@ -30,7 +30,10 @@ INSERT IGNORE INTO platform_settings (id) VALUES (1);
 
 CREATE TABLE IF NOT EXISTS delegates (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  kingschat_user_id VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL UNIQUE,
+  kingschat_user_id VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL UNIQUE,
+  auth_method ENUM('kingschat', 'manual') NOT NULL DEFAULT 'kingschat',
+  phone VARCHAR(32) NULL,
+  manual_login_key CHAR(64) NULL UNIQUE,
   handle VARCHAR(180) NOT NULL,
   display_name VARCHAR(180) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

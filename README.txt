@@ -10,7 +10,7 @@ RUN OFFLINE (NO CPANEL OR MYSQL REQUIRED)
 
 Optional: copy config/offline.example.php to config/secrets.php to select SQLite without an environment variable, then run php -S 127.0.0.1:8000 local-router.php. An existing config/secrets.php overrides environment settings; set its db_driver to sqlite if it already exists. Use the router so the local server blocks downloads of the .db and config files.
 
-Browsing and admin management work offline. Actual delegate KingsChat sign-in requires internet and registered KingsChat application credentials. There is no offline identity bypass. The integration test uses a private local provider mock instead of real KingsChat accounts.
+Browsing and admin management work offline. While KingsChat credentials are missing, delegates can use the temporary username-and-phone form offline; these entries are explicitly unverified. Actual KingsChat verification requires internet and registered application credentials. The integration test uses a private local provider mock instead of real KingsChat accounts.
 
 MOVING TO LIVE CPANEL
 - Set db_driver to mysql in config/secrets.php using config/secrets.example.php as a guide, enter the cPanel database credentials, and import the MySQL schema as described below.
@@ -34,6 +34,8 @@ PROJECT CONTENTS
 - database_upgrade_v2.sql: one-time migration for databases made from the earlier starter schema.
 - database_upgrade_v3.sql: adds persistent homepage selection to an existing MySQL database.
 - database_upgrade_v4.sql: one-time migration adding delegates and linking new feedback to verified KingsChat accounts.
+- database_upgrade_v5.sql: one-time MySQL migration supporting temporary username-and-phone access and authentication-method labels.
+- database_upgrade_sqlite_v4.sql: internal, automatic SQLite delegate-table upgrade; do not import this file into MySQL.
 - database_schema_postgresql.sql: original PostgreSQL proposal, retained for reference only.
 - agent.md: project conventions for future work.
 
@@ -42,10 +44,17 @@ CPANEL SETUP
 2. Upload the project files to your cPanel account, normally under public_html (or the document root assigned to your domain). Keep the directory structure intact.
 3. In cPanel > MySQL Databases, create a database and database user, assign the user to the database with the required privileges, and note the full prefixed names and database host.
 4. For a new database, import database_schema_mysql.sql through phpMyAdmin. It creates the tables and the first published program, “Loveword Expo 2026”.
-5. For an existing database, take a backup and apply only the migrations not already installed: v2 for the original starter, v3 for homepage selection, and database_upgrade_v4.sql for KingsChat delegates. Do not rerun v2 or v4 after their columns already exist. New databases created from the current full schema need no upgrades. Existing SQLite databases upgrade automatically on the next request and retain old feedback.
+5. For an existing database, take a backup and apply only the migrations not already installed: v2 for the original starter, v3 for homepage selection, v4 for KingsChat delegates, and database_upgrade_v5.sql for temporary access. Do not rerun v2, v4, or v5 after their columns already exist. New databases created from the current full schema need no upgrades. Existing SQLite databases upgrade automatically on the next request and retain old feedback and verified delegate associations.
 6. Copy config/secrets.example.php to config/secrets.php on the cPanel account and enter the cPanel database host, full database name, full database username, and database user's password. Keep secrets.php private.
 7. Ensure uploads/banners is writable by PHP and serve the site over HTTPS.
 8. Open /admin to sign in.
+
+TEMPORARY DELEGATE ACCESS AND AUTOMATIC ACTIVATION
+- When either kingschat_client_id or kingschat_api_key is missing, “Rate this service” offers a username-and-phone form. Enter a username and international phone number (with country code). The normalized details are stored server-side; no OTP or KingsChat ownership verification is performed.
+- Temporary delegate records have auth_method = manual, no KingsChat user ID, and are labeled “Manual (unverified)” in the feedback viewer and CSV. Phone numbers are not included in public pages or standard feedback exports.
+- Once both Client ID and API key are configured, the UI automatically switches to “Continue with KingsChat”. Existing manual sessions must sign in again through KingsChat; stale fallback forms cannot create more manual sessions. No extra switch is required.
+- A Client ID alone does not activate verified login. Configure the API key and callback too. Once active, provider errors do not silently fall back to manual access.
+- Matching typed usernames are never merged with verified KingsChat accounts. Historical manual feedback retains its original unverified attribution.
 
 KINGSCHAT DELEGATE SIGN-IN SETUP
 1. Register a project/application at https://developers.kingschat.online/ (https://developer.kingsch.at/ also opens the portal).
@@ -54,7 +63,7 @@ KINGSCHAT DELEGATE SIGN-IN SETUP
 4. Add these entries to the existing config/secrets.php, keeping its database/admin settings:
    'kingschat_client_id' => 'YOUR_CLIENT_ID',
    'kingschat_api_key' => 'YOUR_PROJECT_API_KEY',
-5. Back up the database and import database_upgrade_v4.sql for an existing MySQL database before deploying this version. For SQLite, upgrades are automatic.
+5. Back up the database and apply the missing v4/v5 upgrades for an existing MySQL database before deploying this version. For SQLite, upgrades are automatic.
 6. Browse a program, choose a service, click “Rate this service”, then “Continue with KingsChat”. After verification, the same service's feedback form opens with the KingsChat handle shown.
 
 For actual localhost login, use a separate developer application/callback if KingsChat permits local callbacks; otherwise test authentication on registered HTTPS staging. Do not use someone else's Client ID. No KingsChat password, access token, or refresh token is stored in the app database or browser storage. See docs/kingschat.md for flow details and references. Real-provider end-to-end testing requires your own credentials.
@@ -71,8 +80,8 @@ PROGRAMS AND FEEDBACK
 - The initial homepage is Loveword Expo 2026. If no homepage is selected, or the selected program becomes a draft, the oldest published program is shown instead. Draft programs cannot be selected as the homepage. Other published programs remain available at their own program.php?slug= URLs.
 - Sign in to create additional programs. Each gets the same Delegate Experience Centre UI, its own URL, banner, colors, and separate feedback records.
 - Edit a program to upload or remove its JPG, PNG, or WebP banner (maximum 5 MB). Banner files are stored on the cPanel account in uploads/banners; program settings and feedback records are stored in the cPanel MySQL database.
-- Visitors can browse freely; feedback requires verified KingsChat sign-in. Names and handles come from the verified profile rather than a typed handle/name. Admin login alone never authorizes delegate feedback.
-- Feedback is saved to the selected program and the verified delegate ID. Admins can open “Feedback & CSV” to filter/review submissions or export CSV, including the verified KingsChat handle for identified feedback.
+- Visitors can browse freely. Feedback requires a delegate session: verified KingsChat when configured, or temporary username-and-phone access while credentials are missing. Admin login alone never authorizes delegate feedback.
+- Feedback is saved to the selected program and the current delegate ID. Admins can open “Feedback & CSV” to filter/review submissions or export CSV, including usernames and their verified/unverified access method. KingsChat-mode names/handles always come from the verified profile.
 - Delegates can hide their name/handle in feedback views and CSV exports; this does not remove the internal delegate association. Old feedback remains readable with no delegate association. Admin and delegate logout actions are independent.
 - The current PHP app stores no application data in the browser. Offline structured data stays in storage/experience.db. In live MySQL mode, all application files and uploaded banners stay on the cPanel account and program/feedback data stays in its MySQL database.
 
@@ -91,3 +100,4 @@ HOMEPAGE / DATABASE TROUBLESHOOTING
 OFFLINE VERIFICATION
 Run python3 tests/offline_smoke.py to test the actual PHP HTTP routes with a disposable SQLite database: login, program creation/editing, banner upload, feedback validation/storage/privacy, program separation, CSV export, and private-file protection. Requires PHP and Python 3.
 Run TEST_WITHOUT_FILEINFO=1 python3 tests/offline_smoke.py to also exercise banner uploads on hosts without the Fileinfo class. The checks cover database-save failures, preserved form values, and cleanup of failed uploads.
+The same checks cover manual username/phone validation, normalized record reuse, migration of existing verified users/feedback, report labels, automatic activation, stale manual-session rejection, and separation of manual records from verified accounts.

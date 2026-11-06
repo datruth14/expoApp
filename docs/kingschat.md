@@ -12,7 +12,15 @@ Set these server-side values in ignored `config/secrets.php`, or through the cor
 
 Register `https://experience.ministryprograms.org/delegate-callback.php` as the application's callback URL with **REDIRECT** delivery and enable access to the user's profile. This app does not accept FORM_POST callbacks: cross-site POSTs omit the SameSite=Lax session cookie needed to validate the pending login. Keep the same scheme/host throughout the browser session.
 
-For an existing MySQL installation, apply `database_upgrade_v4.sql` once after any earlier required migrations. It creates `delegates` and adds a nullable `feedback.delegate_id`; historical rows are retained. New databases already include these changes. SQLite performs the equivalent upgrade automatically.
+For an existing MySQL installation, apply the missing `database_upgrade_v4.sql` and `database_upgrade_v5.sql` migrations once after any earlier required migrations. They create/link delegates and enable unverified temporary access; historical rows and verified associations are retained. New databases already include these changes. SQLite performs the equivalent upgrade automatically to schema version 4.
+
+## Temporary access before credentials are assigned
+
+If either Client ID or API key is blank, the delegate login route displays a username-and-phone form rather than redirecting to KingsChat. It validates the username and international phone format, normalizes the values, and saves a delegate with `auth_method = manual`, a nullable provider ID, and a unique key for the normalized username/phone pair. This is self-reported access, not phone/OTP or KingsChat verification; the form and reports say so explicitly.
+
+The phone number is kept server-side and omitted from public pages and standard CSV exports. Manual records do not become verified simply because the same username later logs in through KingsChat. Their feedback keeps its original attribution and **Manual (unverified)** label.
+
+When **both** Client ID and API key become nonempty, KingsChat login activates automatically. `current_delegate()` immediately rejects existing manual sessions, the manual form is no longer offered, and stale POSTs go through the KingsChat login route. A Client ID by itself is insufficient. There is no silent manual fallback after provider/network errors in configured mode.
 
 ## Flow
 
@@ -30,7 +38,7 @@ Identity-hidden feedback remains internally associated with the signed-in delega
 
 `python3 tests/offline_smoke.py` starts a disposable PHP/SQLite app and a local mock implementing the actual token/profile HTTP contract. It tests invalid codes/profiles, callback nonce rejection/replay, provider-token secrecy, session expiry, return context, impersonation prevention, independent admin/delegate sessions, historical data migration, and CSV identity masking.
 
-The mock requires `APP_ENV=test`, SQLite, and an explicitly configured loopback `KINGSCHAT_API_BASE_URL`. Normal runtime only allows `https://connect.kingsch.at`; there is no fake-login route or bypass in the public app. Actual KingsChat authentication requires internet. Real-provider testing and any portal-specific scope/application configuration must be completed with your own Client ID/API key.
+The mock requires `APP_ENV=test`, SQLite, and an explicitly configured loopback `KINGSCHAT_API_BASE_URL`. Normal verified login only allows `https://connect.kingsch.at`; the temporary form is available solely while credentials are incomplete and never claims a verified identity. Tests restart the app with missing, partial, and complete credentials to verify automatic activation and old-session rejection. Actual KingsChat authentication requires internet. Real-provider testing and any portal-specific scope/application configuration must be completed with your own Client ID/API key.
 
 ## Research references
 
