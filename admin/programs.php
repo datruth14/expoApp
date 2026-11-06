@@ -107,7 +107,9 @@ unset($_SESSION['program_notice']);
                   <button class="button" type="submit">Set as homepage</button>
                 </form>
                 <?php endif; ?>
-              <?php endif; ?></td>
+              <?php endif; ?>
+                <p style="margin-bottom:0"><a href="program-delete.php?id=<?= (int) $program['id'] ?>" style="color:#a32c28">Delete program</a></p>
+              </td>
             </tr>
           <?php endforeach; ?>
           </tbody>

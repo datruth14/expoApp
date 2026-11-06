@@ -30,6 +30,7 @@ Delegate Experience Centre uses PHP 8.1+, MySQL/MariaDB for cPanel or SQLite for
 - Manual records have no provider ID, an explicit `auth_method`, and normalized username/phone data. Never merge them with verified accounts based on a matching handle. Omit phones from standard feedback exports and label manual feedback unverified.
 - Both Client ID and API key activate KingsChat automatically. Reject old manual sessions and stale manual form submissions in configured mode; never downgrade after a provider failure.
 - Mask both name and KingsChat handle for anonymous/report-hidden feedback in HTML and CSV while preserving its internal `delegate_id` link.
+- Program deletion is admin-only and requires a CSRF-protected POST after the confirmation page. Use the existing FK cascade for feedback and SET NULL for homepage selection; keep delegates and other programs intact. Only remove managed banner paths that are not referenced by another program. No published programs should render the public empty-state template.
 - Start offline with `DB_DRIVER=sqlite php -S 127.0.0.1:8000 local-router.php`. The router protects private files because PHP's built-in server ignores `.htaccess`.
 
 ## Checks

@@ -6,6 +6,10 @@ try {
     $slug = trim((string) ($_GET['slug'] ?? ''));
     if ($slug === '') {
         $homeProgram = homepage_program();
+        if (!$homeProgram) {
+            require __DIR__ . '/templates/no-programs.php';
+            exit;
+        }
         $slug = (string) ($homeProgram['slug'] ?? '');
     }
     if ($slug === '' || !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {

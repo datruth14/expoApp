@@ -157,6 +157,8 @@ def run():
             for private in ["/storage/test.db", "/config/settings.php", "/.git/config", "/database_schema_sqlite.sql"]:
                 assert request(private)[0] == 404, private
             assert request("/admin/export-feedback.php?program_id=1")[2].endswith("/admin/login.php")
+            assert request('/admin/program-delete.php?id=1')[2].endswith('/admin/login.php')
+            assert request('/admin/program-delete.php', {'program_id': 1})[2].endswith('/admin/login.php')
             assert request('/submit-feedback.php', {'csrf_token': token(home)})[0] == 401
             assert 'class="panel hidden" id="feedbackForm"' in home
             assert request('/delegate-callback.php', {'code': 'forged', 'origin': 'forged'})[0] == 405
@@ -383,7 +385,54 @@ def run():
             with sqlite3.connect(database) as connection:
                 assert connection.execute('SELECT COUNT(*) FROM delegates').fetchone()[0] == 2
                 assert connection.execute('SELECT delegate_id FROM feedback WHERE comments = ?', ('Temporary delegate feedback',)).fetchone()[0] == manual_id
-            print("PASS: public browsing, KingsChat verification, unverified username/phone fallback, automatic activation and stale-session rejection, legacy migrations, identity separation, feedback/privacy/CSV, program/banner management, and private-file protection.")
+
+            # Deletion is admin-only, confirmed, POST/CSRF protected, and scoped.
+            _, delete_dashboard, _ = request('/admin/programs.php')
+            assert 'Delete program' in delete_dashboard
+            delete_fields = {'csrf_token': token(delete_dashboard), 'program_id': second_id}
+            assert request('/admin/program-delete.php', dict(delete_fields, csrf_token='invalid'))[0] == 400
+            assert request('/admin/program-delete.php', dict(delete_fields, program_id=-1))[0] == 422
+            assert request('/admin/program-delete.php', dict(delete_fields, program_id=999999))[0] == 404
+            assert request('/submit-feedback.php', dict(identified, program_slug='loveword-expo-2026', area='Venue Experience', comments='Keep this program feedback'))[0] == 201
+            draft_fields = dict(fields, name='Draft deletion test', slug='draft-deletion-test', status='draft')
+            assert request('/admin/program-edit.php', draft_fields)[0] == 200
+            with sqlite3.connect(database) as connection:
+                draft_id = connection.execute("SELECT id FROM programs WHERE slug = 'draft-deletion-test'").fetchone()[0]
+                before_delete = connection.execute('SELECT id, program_id FROM feedback ORDER BY id').fetchall()
+            assert 'Draft deletion test' in request(f'/admin/program-delete.php?id={draft_id}')[1]
+            assert request('/admin/program-delete.php', dict(delete_fields, program_id=draft_id))[0] == 200
+            status, confirmation, _ = request(f'/admin/program-delete.php?id={second_id}')
+            assert status == 200 and 'current homepage' in confirmation and 'Delete program and feedback' in confirmation
+            with sqlite3.connect(database) as connection:
+                assert connection.execute('SELECT id, program_id FROM feedback ORDER BY id').fetchall() == before_delete, 'GET confirmation must not delete feedback'
+                connection.execute("CREATE TRIGGER reject_delete BEFORE DELETE ON programs BEGIN SELECT RAISE(ABORT, 'Simulated deletion failure'); END")
+            assert request('/admin/program-delete.php', delete_fields)[0] == 503
+            with sqlite3.connect(database) as connection:
+                assert connection.execute('SELECT id, program_id FROM feedback ORDER BY id').fetchall() == before_delete
+                assert connection.execute('SELECT id FROM programs WHERE id = ?', (second_id,)).fetchone()
+                connection.execute('DROP TRIGGER reject_delete')
+            assert banner_file.exists(), 'Failed deletion must preserve the banner'
+            status, deleted, _ = request('/admin/program-delete.php', delete_fields)
+            assert status == 200 and 'Program deleted along with its feedback.' in deleted
+            with sqlite3.connect(database) as connection:
+                assert connection.execute('SELECT id FROM programs WHERE id = ?', (second_id,)).fetchone() is None
+                assert connection.execute('SELECT COUNT(*) FROM feedback WHERE program_id = ?', (second_id,)).fetchone()[0] == 0
+                assert connection.execute('SELECT comments FROM feedback WHERE program_id = 1').fetchall() == [('Keep this program feedback',)]
+                assert connection.execute('SELECT home_program_id FROM platform_settings WHERE id = 1').fetchone()[0] is None
+                assert connection.execute('SELECT COUNT(*) FROM delegates').fetchone()[0] == 2
+            assert not banner_file.exists(), 'Deleted program banner must be removed'
+            assert 'Loveword Expo 2026' in request('/')[1]
+            assert request('/program.php?slug=offline-second')[0] == 404
+            assert request(f'/admin/feedback.php?program_id={second_id}')[0] == 404
+            assert request(f'/admin/export-feedback.php?program_id={second_id}')[0] == 404
+            assert request('/admin/program-delete.php', dict(delete_fields, program_id=1))[0] == 200
+            status, empty_home, _ = request('/')
+            assert status == 200 and 'No programs currently published' in empty_home
+            with sqlite3.connect(database) as connection:
+                assert connection.execute('SELECT COUNT(*) FROM programs').fetchone()[0] == 0
+                assert connection.execute('SELECT COUNT(*) FROM feedback').fetchone()[0] == 0
+                assert connection.execute('PRAGMA foreign_key_check').fetchall() == []
+            print("PASS: authentication modes/activation, feedback/privacy/CSV, migrations, program/banner management, protected deletion and failure recovery, homepage fallback/empty state, and private-file protection.")
         finally:
             server.terminate()
             server.wait(timeout=10)
