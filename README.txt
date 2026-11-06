@@ -67,6 +67,8 @@ HOMEPAGE / DATABASE TROUBLESHOOTING
 - MySQL 1044/1045: verify the full cPanel database/user names, password, and the user's database assignment/privileges. MySQL 2002/2003/2005: verify the host/port with the hosting provider and check the MySQL service.
 - MySQL 1146/1054: import the schema or the appropriate upgrade as described above.
 - Public failures are logged with a support reference in the cPanel PHP error log and return HTTP 503 without exposing database details to visitors. A Git push alone does not configure the hosting database or run SQL imports.
+- If saving a program fails, the authenticated edit form displays the error and support reference while preserving your text. Check the database user's INSERT/UPDATE permissions, column sizes/schema, and character set. New program service JSON uses Unicode escapes for older MySQL character sets; banners can also be validated when Fileinfo is unavailable.
 
 OFFLINE VERIFICATION
 Run python3 tests/offline_smoke.py to test the actual PHP HTTP routes with a disposable SQLite database: login, program creation/editing, banner upload, feedback validation/storage/privacy, program separation, CSV export, and private-file protection. Requires PHP and Python 3.
+Run TEST_WITHOUT_FILEINFO=1 python3 tests/offline_smoke.py to also exercise banner uploads on hosts without the Fileinfo class. The checks cover database-save failures, preserved form values, and cleanup of failed uploads.

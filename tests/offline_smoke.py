@@ -29,8 +29,9 @@ def run():
             port = listener.getsockname()[1]
         base = f"http://127.0.0.1:{port}"
         environment = dict(os.environ, DB_DRIVER="sqlite", SQLITE_PATH=str(database))
+        php_options = ['-d', 'disable_classes=finfo'] if os.environ.get('TEST_WITHOUT_FILEINFO') == '1' else []
         server = subprocess.Popen(
-            ["php", "-S", f"127.0.0.1:{port}", "local-router.php"],
+            ["php", *php_options, "-S", f"127.0.0.1:{port}", "local-router.php"],
             cwd=ROOT, env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         client = urllib.request.build_opener(
@@ -100,12 +101,24 @@ def run():
                 "description": "Second program description", "welcome_message": "Welcome offline",
                 "primary_color": "#123c7a", "accent_color": "#e5ad36", "status": "published",
             }
+            with sqlite3.connect(database) as connection:
+                connection.execute("CREATE TRIGGER reject_test_save BEFORE INSERT ON programs BEGIN SELECT RAISE(ABORT, 'Simulated database save failure'); END")
+            banners_before = set((ROOT / 'uploads/banners').glob('*'))
+            status, failed_save, _ = request('/admin/program-edit.php', fields, upload=True)
+            assert status == 200 and 'Unable to save the program.' in failed_save, failed_save
+            assert 'Simulated database save failure' in failed_save
+            assert 'value="Offline second program"' in failed_save, 'Entered values must be preserved'
+            assert set((ROOT / 'uploads/banners').glob('*')) == banners_before, 'Failed save left an orphan banner'
+            with sqlite3.connect(database) as connection:
+                connection.execute('DROP TRIGGER reject_test_save')
             status, saved, _ = request("/admin/program-edit.php", fields, upload=True)
             assert status == 200 and "Offline second program" in saved, saved
             with sqlite3.connect(database) as connection:
                 second_id, banner_path = connection.execute("SELECT id, banner_path FROM programs WHERE slug = 'offline-second'").fetchone()
                 banner_file = ROOT / banner_path
                 assert banner_file.exists(), "Banner upload was not persisted"
+                services = connection.execute('SELECT services_json FROM programs WHERE id = ?', (second_id,)).fetchone()[0]
+                assert services.isascii() and json.loads(services)[0][2] == '🎪'
             assert request("/" + banner_path)[0] == 200
             _, second_home, _ = request("/program.php?slug=offline-second")
             assert banner_path in second_home

@@ -30,79 +30,108 @@ if ($id > 0) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
-    foreach (['name', 'slug', 'platform_title', 'tagline', 'description', 'welcome_message', 'primary_color', 'accent_color', 'status'] as $key) {
-        $program[$key] = trim((string) ($_POST[$key] ?? ''));
-    }
-    $program['slug'] = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $program['slug'] !== '' ? $program['slug'] : $program['name']), '-'));
-
-    if ($program['name'] === '' || $program['slug'] === '' || $program['description'] === '') {
-        $error = 'Program name, URL slug, and description are required.';
-    } elseif (strlen($program['name']) > 160 || strlen($program['platform_title']) > 160 || strlen($program['tagline']) > 255) {
-        $error = 'The program name, platform title, or tagline is too long.';
-    } elseif (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $program['slug'])) {
-        $error = 'Use lowercase letters, numbers, and hyphens in the URL slug.';
-    } elseif (!preg_match('/^#[0-9a-fA-F]{6}$/', $program['primary_color']) || !preg_match('/^#[0-9a-fA-F]{6}$/', $program['accent_color'])) {
-        $error = 'Choose valid six-digit hex colors.';
-    } elseif (!in_array($program['status'], ['draft', 'published'], true)) {
-        $error = 'Choose a valid publishing status.';
-    } else {
-        $check = $connection->query('SELECT id FROM programs WHERE slug = ? AND id <> ?', [$program['slug'], $id]);
-        if ($check->fetch()) {
-            $error = 'That URL slug is already in use.';
+    $uploadedBanner = null;
+    try {
+        foreach (['name', 'slug', 'platform_title', 'tagline', 'description', 'welcome_message', 'primary_color', 'accent_color', 'status'] as $key) {
+            $program[$key] = trim((string) ($_POST[$key] ?? ''));
         }
-    }
+        $program['slug'] = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $program['slug'] !== '' ? $program['slug'] : $program['name']), '-'));
 
-    $oldBanner = $program['banner_path'];
-    $newBanner = $oldBanner;
-    $file = $_FILES['banner'] ?? null;
-    $removeBanner = isset($_POST['remove_banner']);
-    if ($error === '' && $file && $file['error'] !== UPLOAD_ERR_NO_FILE) {
-        if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
-            $error = 'The banner could not be uploaded. Please try again.';
-        } elseif ($file['size'] > 5 * 1024 * 1024) {
-            $error = 'The banner must be 5 MB or smaller.';
+        if ($program['name'] === '' || $program['slug'] === '' || $program['description'] === '' || $program['platform_title'] === '') {
+            $error = 'Program name, URL slug, platform title, and description are required.';
+        } elseif (mb_strlen($program['name']) > 160 || mb_strlen($program['platform_title']) > 160 || mb_strlen($program['tagline']) > 255 || strlen($program['slug']) > 180) {
+            $error = 'The program name, URL slug, platform title, or tagline is too long.';
+        } elseif (strlen($program['description']) > 65535 || strlen($program['welcome_message']) > 65535) {
+            $error = 'The description or welcome message exceeds the database text limit. Please shorten it.';
+        } elseif (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $program['slug'])) {
+            $error = 'Use lowercase letters, numbers, and hyphens in the URL slug.';
+        } elseif (!preg_match('/^#[0-9a-fA-F]{6}$/', $program['primary_color']) || !preg_match('/^#[0-9a-fA-F]{6}$/', $program['accent_color'])) {
+            $error = 'Choose valid six-digit hex colors.';
+        } elseif (!in_array($program['status'], ['draft', 'published'], true)) {
+            $error = 'Choose a valid publishing status.';
         } else {
-            $finfo = new finfo(FILEINFO_MIME_TYPE);
-            $mime = $finfo->file($file['tmp_name']);
-            $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-            $imageInfo = @getimagesize($file['tmp_name']);
-            if (!isset($extensions[$mime]) || !$imageInfo || $imageInfo[0] > 10000 || $imageInfo[1] > 10000) {
-                $error = 'Choose a valid JPG, PNG, or WebP image no larger than 10,000 by 10,000 pixels.';
+            $check = $connection->query('SELECT id FROM programs WHERE slug = ? AND id <> ?', [$program['slug'], $id]);
+            if ($check->fetch()) {
+                $error = 'That URL slug is already in use.';
+            }
+        }
+
+        $oldBanner = $program['banner_path'];
+        $newBanner = $oldBanner;
+        $file = $_FILES['banner'] ?? null;
+        $removeBanner = isset($_POST['remove_banner']);
+        if ($error === '' && $file && $file['error'] !== UPLOAD_ERR_NO_FILE) {
+            if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+                $error = 'The banner could not be uploaded. Please try again.';
+            } elseif ($file['size'] > 5 * 1024 * 1024) {
+                $error = 'The banner must be 5 MB or smaller.';
             } else {
-                $uploadDirectory = __DIR__ . '/../uploads/banners';
-                if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true) && !is_dir($uploadDirectory)) {
-                    $error = 'The banner upload folder could not be created. Check hosting folder permissions.';
+                $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+                $imageInfo = @getimagesize($file['tmp_name']);
+                // getimagesize also identifies the MIME type on hosts without Fileinfo.
+                $mime = $imageInfo['mime'] ?? '';
+                if (class_exists('finfo') && method_exists('finfo', 'file')) {
+                    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+                }
+                if (!isset($extensions[$mime]) || !$imageInfo || $imageInfo[0] > 10000 || $imageInfo[1] > 10000) {
+                    $error = 'Choose a valid JPG, PNG, or WebP image no larger than 10,000 by 10,000 pixels.';
                 } else {
-                    $fileName = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
-                    if (!move_uploaded_file($file['tmp_name'], $uploadDirectory . '/' . $fileName)) {
-                        $error = 'The banner could not be saved. Check hosting folder permissions.';
+                    $uploadDirectory = __DIR__ . '/../uploads/banners';
+                    if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true) && !is_dir($uploadDirectory)) {
+                        $error = 'The banner upload folder could not be created. Check hosting folder permissions.';
                     } else {
-                        $newBanner = 'uploads/banners/' . $fileName;
+                        $fileName = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+                        if (!move_uploaded_file($file['tmp_name'], $uploadDirectory . '/' . $fileName)) {
+                            $error = 'The banner could not be saved. Check hosting folder permissions.';
+                        } else {
+                            $newBanner = 'uploads/banners/' . $fileName;
+                            $uploadedBanner = $newBanner;
+                        }
                     }
                 }
             }
-        }
-    } elseif ($error === '' && $removeBanner) {
-        $newBanner = null;
-    }
-
-    if ($error === '') {
-        if ($id > 0) {
-            $connection->query('UPDATE programs SET name = ?, slug = ?, platform_title = ?, tagline = ?, description = ?, welcome_message = ?, banner_path = ?, primary_color = ?, accent_color = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [$program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $program['status'], $id]);
-        } else {
-            $servicesJson = json_encode(default_program_services(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $connection->query('INSERT INTO programs (name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [$program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $servicesJson, $program['status']]);
+        } elseif ($error === '' && $removeBanner) {
+            $newBanner = null;
         }
 
-        if ($oldBanner && $oldBanner !== $newBanner && str_starts_with($oldBanner, 'uploads/banners/')) {
-            $oldFile = __DIR__ . '/../' . $oldBanner;
-            if (is_file($oldFile)) {
-                unlink($oldFile);
+        if ($error === '') {
+            if ($id > 0) {
+                $connection->query('UPDATE programs SET name = ?, slug = ?, platform_title = ?, tagline = ?, description = ?, welcome_message = ?, banner_path = ?, primary_color = ?, accent_color = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [$program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $program['status'], $id]);
+            } else {
+                // ASCII JSON escapes preserve emoji even on older MySQL utf8 columns.
+                $servicesJson = json_encode(default_program_services(), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $connection->query('INSERT INTO programs (name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [$program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $servicesJson, $program['status']]);
+            }
+            $uploadedBanner = null; // The saved row now owns the uploaded file.
+
+            if ($oldBanner && $oldBanner !== $newBanner && str_starts_with($oldBanner, 'uploads/banners/')) {
+                $oldFile = __DIR__ . '/../' . $oldBanner;
+                if (is_file($oldFile)) {
+                    unlink($oldFile);
+                }
+            }
+
+            header('Location: programs.php');
+            exit;
+        }
+    } catch (Throwable $exception) {
+        if ($uploadedBanner !== null) {
+            $uploadedFile = __DIR__ . '/../' . $uploadedBanner;
+            if (is_file($uploadedFile)) {
+                unlink($uploadedFile);
             }
         }
-
-        header('Location: programs.php');
-        exit;
+        $reference = bin2hex(random_bytes(6));
+        error_log('Delegate Experience Centre program save [' . $reference . '] (' . $exception->getCode() . '): ' . $exception->getMessage());
+        $hint = match ((int) $exception->getCode()) {
+            1054, 1146 => 'The database schema needs updating. Check the imported schema and required upgrades.',
+            1142, 1143 => 'The database user needs INSERT and UPDATE privileges for the programs table in cPanel.',
+            1062 => 'The URL slug is already in use. Choose another slug.',
+            1366 => 'A database column cannot store these characters. The MySQL tables should use utf8mb4.',
+            1406 => 'One of the values exceeds the live database column size. Check that the schema is up to date.',
+            default => 'Check the error details below or the cPanel PHP error log.',
+        };
+        $error = 'Unable to save the program. ' . $hint . ' Details: ' . $exception->getMessage() . ' (Reference: ' . $reference . ').';
     }
 }
 ?>
