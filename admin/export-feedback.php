@@ -5,19 +5,13 @@ require_admin();
 
 $programId = filter_input(INPUT_GET, 'program_id', FILTER_VALIDATE_INT) ?: 0;
 $connection = db();
-$programStatement = $connection->prepare('SELECT name, slug FROM programs WHERE id = ?');
-$programStatement->bind_param('i', $programId);
-$programStatement->execute();
-$program = $programStatement->get_result()->fetch_assoc();
+$program = $connection->query('SELECT name, slug FROM programs WHERE id = ?', [$programId])->fetch();
 if (!$program) {
     http_response_code(404);
     exit('Program not found.');
 }
 
-$statement = $connection->prepare('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? ORDER BY submitted_at DESC');
-$statement->bind_param('i', $programId);
-$statement->execute();
-$rows = $statement->get_result();
+$rows = $connection->query('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? ORDER BY submitted_at DESC', [$programId]);
 
 $filename = preg_replace('/[^a-z0-9-]+/i', '-', $program['slug']) . '-feedback.csv';
 header('Content-Type: text/csv; charset=utf-8');
@@ -35,7 +29,7 @@ $safeCell = static function (mixed $value): string {
 };
 
 fputcsv($output, ['Submitted at', 'Program', 'Delegate', 'Service area', 'Rating', 'What went well', 'Comments'], ',', '"', '\\');
-while ($row = $rows->fetch_assoc()) {
+while ($row = $rows->fetch()) {
     fputcsv($output, [
         $safeCell($row['submitted_at']),
         $safeCell($program['name']),

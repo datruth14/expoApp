@@ -3,6 +3,7 @@
 // To change the admin password, generate a hash with:
 // php -r 'echo password_hash("your-new-password", PASSWORD_DEFAULT), PHP_EOL;'
 return [
+    'db_driver' => 'mysql',
     'db_host' => 'localhost',
     'db_port' => 3306,
     'db_name' => 'cpanel_account_database',

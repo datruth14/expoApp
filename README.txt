@@ -1,4 +1,19 @@
-DELEGATE EXPERIENCE CENTRE – PHP / MYSQLI PROGRAM TEMPLATE
+DELEGATE EXPERIENCE CENTRE – PHP / MYSQLI + OFFLINE SQLITE
+
+RUN OFFLINE (NO CPANEL OR MYSQL REQUIRED)
+1. Install PHP 8.1+ with pdo_sqlite, mbstring, Fileinfo, and sessions enabled.
+2. From the project directory, run:
+   DB_DRIVER=sqlite php -S 127.0.0.1:8000 local-router.php
+3. Open http://127.0.0.1:8000/ for the homepage or http://127.0.0.1:8000/admin for admin login.
+4. Log in using admin / admin12345. Programs and feedback persist in storage/experience.db inside this project. The first request creates both tables and seeds Loveword Expo 2026 automatically. No SQL import is needed offline.
+5. Uploaded banner files stay in uploads/banners. Restarting the PHP server preserves the database and banner files.
+
+Optional: copy config/offline.example.php to config/secrets.php to select SQLite without an environment variable, then run php -S 127.0.0.1:8000 local-router.php. An existing config/secrets.php overrides environment settings; set its db_driver to sqlite if it already exists. Use the router so the local server blocks downloads of the .db and config files.
+
+MOVING TO LIVE CPANEL
+- Set db_driver to mysql in config/secrets.php using config/secrets.example.php as a guide, enter the cPanel database credentials, and import the MySQL schema as described below.
+- SQLite offline data and cPanel MySQL data are separate. Switching drivers does not transfer offline records. Back up storage/experience.db if you want to keep your offline data.
+- Keep the SQLite .db file private and out of Git. It is ignored; the SQL schema and automatic initialization code are committed instead.
 
 PROJECT CONTENTS
 - index.php: public homepage for visitors and signed-in admins. The root .htaccess selects this entry point; index.html remains a fallback redirect.
@@ -8,6 +23,10 @@ PROJECT CONTENTS
 - uploads/banners/: admin-uploaded program banners (the directory must be writable by PHP).
 - config/: server-side MySQLi settings and deployment example. Keep real credentials private.
 - database_schema_mysql.sql: full schema and initial Loveword Expo 2026 program seed for a new database.
+- database_schema_sqlite.sql: SQLite schema used automatically in offline mode.
+- includes/database.php: shared prepared-query interface for MySQLi and SQLite.
+- storage/experience.db: automatically created offline SQLite database (not committed).
+- local-router.php: offline PHP-server router that blocks access to private files.
 - database_upgrade_v2.sql: one-time migration for databases made from the earlier starter schema.
 - database_schema_postgresql.sql: original PostgreSQL proposal, retained for reference only.
 - agent.md: project conventions for future work.
@@ -34,7 +53,7 @@ PROGRAMS AND FEEDBACK
 - Sign in to create additional programs. Each gets the same Delegate Experience Centre UI, its own URL, banner, colors, and separate feedback records.
 - Edit a program to upload or remove its JPG, PNG, or WebP banner (maximum 5 MB). Banner files are stored on the cPanel account in uploads/banners; program settings and feedback records are stored in the cPanel MySQL database.
 - Public feedback is saved to the selected program. Admins can open a program's “Feedback & CSV” page to filter and review submissions or download its CSV export.
-- The current PHP app stores no application data in the browser. All application files and uploaded banners stay on the cPanel account; structured program and feedback data stays in its MySQL database.
+- The current PHP app stores no application data in the browser. Offline structured data stays in storage/experience.db. In live MySQL mode, all application files and uploaded banners stay on the cPanel account and program/feedback data stays in its MySQL database.
 
 SECURITY NOTES
 - Never commit or place config/secrets.php in browser-accessible source. It is excluded by .gitignore and the config directory is denied by .htaccess.
@@ -46,3 +65,6 @@ HOMEPAGE / DATABASE TROUBLESHOOTING
 - MySQL 1044/1045: verify the full cPanel database/user names, password, and the user's database assignment/privileges. MySQL 2002/2003/2005: verify the host/port with the hosting provider and check the MySQL service.
 - MySQL 1146/1054: import the schema or the appropriate upgrade as described above.
 - Public failures are logged with a support reference in the cPanel PHP error log and return HTTP 503 without exposing database details to visitors. A Git push alone does not configure the hosting database or run SQL imports.
+
+OFFLINE VERIFICATION
+Run python3 tests/offline_smoke.py to test the actual PHP HTTP routes with a disposable SQLite database: login, program creation/editing, banner upload, feedback validation/storage/privacy, program separation, CSV export, and private-file protection. Requires PHP and Python 3.

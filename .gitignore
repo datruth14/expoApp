@@ -1,3 +1,4 @@
 /config/secrets.php
 /uploads/banners/*
 !/uploads/banners/.htaccess
+/storage/*.db*

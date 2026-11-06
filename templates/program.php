@@ -91,8 +91,8 @@ const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSO
  $('feedbackForm').addEventListener('submit',async event=>{
   event.preventDefault();
   if(!$('feedbackArea').value||!rating){$('formMessage').textContent='Please select a service area and star rating.';return;}
-  const button=$('submitFeedback');button.disabled=true;$('formMessage').textContent='Sending your feedback…';
-  try{const response=await fetch(event.currentTarget.action,{method:'POST',body:new FormData(event.currentTarget),headers:{Accept:'application/json'}});const result=await response.json();$('formMessage').textContent=result.message||'Unable to submit feedback.';if(response.ok&&result.ok)event.currentTarget.reset();}
+  const form=event.currentTarget;const button=$('submitFeedback');button.disabled=true;$('formMessage').textContent='Sending your feedback…';
+  try{const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{Accept:'application/json'}});const result=await response.json();if(response.ok&&result.ok)form.reset();$('formMessage').textContent=result.message||'Unable to submit feedback.';}
   catch(error){$('formMessage').textContent='Unable to submit right now. Please try again.';}
   finally{button.disabled=false;}
  });

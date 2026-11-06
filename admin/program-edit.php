@@ -20,10 +20,7 @@ $program = [
 $error = '';
 
 if ($id > 0) {
-    $statement = $connection->prepare('SELECT name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, status FROM programs WHERE id = ?');
-    $statement->bind_param('i', $id);
-    $statement->execute();
-    $saved = $statement->get_result()->fetch_assoc();
+    $saved = $connection->query('SELECT name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, status FROM programs WHERE id = ?', [$id])->fetch();
     if (!$saved) {
         http_response_code(404);
         exit('Program not found.');
@@ -49,10 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!in_array($program['status'], ['draft', 'published'], true)) {
         $error = 'Choose a valid publishing status.';
     } else {
-        $check = $connection->prepare('SELECT id FROM programs WHERE slug = ? AND id <> ?');
-        $check->bind_param('si', $program['slug'], $id);
-        $check->execute();
-        if ($check->get_result()->fetch_assoc()) {
+        $check = $connection->query('SELECT id FROM programs WHERE slug = ? AND id <> ?', [$program['slug'], $id]);
+        if ($check->fetch()) {
             $error = 'That URL slug is already in use.';
         }
     }
@@ -93,14 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($error === '') {
         if ($id > 0) {
-            $statement = $connection->prepare('UPDATE programs SET name = ?, slug = ?, platform_title = ?, tagline = ?, description = ?, welcome_message = ?, banner_path = ?, primary_color = ?, accent_color = ?, status = ? WHERE id = ?');
-            $statement->bind_param('ssssssssssi', $program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $program['status'], $id);
+            $connection->query('UPDATE programs SET name = ?, slug = ?, platform_title = ?, tagline = ?, description = ?, welcome_message = ?, banner_path = ?, primary_color = ?, accent_color = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [$program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $program['status'], $id]);
         } else {
             $servicesJson = json_encode(default_program_services(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $statement = $connection->prepare('INSERT INTO programs (name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-            $statement->bind_param('sssssssssss', $program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $servicesJson, $program['status']);
+            $connection->query('INSERT INTO programs (name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [$program['name'], $program['slug'], $program['platform_title'], $program['tagline'], $program['description'], $program['welcome_message'], $newBanner, $program['primary_color'], $program['accent_color'], $servicesJson, $program['status']]);
         }
-        $statement->execute();
 
         if ($oldBanner && $oldBanner !== $newBanner && str_starts_with($oldBanner, 'uploads/banners/')) {
             $oldFile = __DIR__ . '/../' . $oldBanner;

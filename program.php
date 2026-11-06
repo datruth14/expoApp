@@ -5,7 +5,7 @@ try {
 
     $slug = trim((string) ($_GET['slug'] ?? ''));
     if ($slug === '') {
-        $firstProgram = db()->query("SELECT slug FROM programs WHERE status = 'published' ORDER BY id LIMIT 1")->fetch_assoc();
+        $firstProgram = db()->query("SELECT slug FROM programs WHERE status = 'published' ORDER BY id LIMIT 1")->fetch();
         $slug = (string) ($firstProgram['slug'] ?? '');
     }
     if ($slug === '' || !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {
@@ -13,10 +13,7 @@ try {
         exit('Program not found.');
     }
 
-    $statement = db()->prepare("SELECT id, name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json FROM programs WHERE slug = ? AND status = 'published' LIMIT 1");
-    $statement->bind_param('s', $slug);
-    $statement->execute();
-    $program = $statement->get_result()->fetch_assoc();
+    $program = db()->query("SELECT id, name, slug, platform_title, tagline, description, welcome_message, banner_path, primary_color, accent_color, services_json FROM programs WHERE slug = ? AND status = 'published' LIMIT 1", [$slug])->fetch();
 
     if (!$program) {
         http_response_code(404);

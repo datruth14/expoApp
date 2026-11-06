@@ -5,35 +5,23 @@ require_admin();
 
 $connection = db();
 $programId = filter_input(INPUT_GET, 'program_id', FILTER_VALIDATE_INT) ?: 0;
-$programStatement = $connection->prepare('SELECT id, name, slug FROM programs WHERE id = ?');
-$programStatement->bind_param('i', $programId);
-$programStatement->execute();
-$program = $programStatement->get_result()->fetch_assoc();
+$program = $connection->query('SELECT id, name, slug FROM programs WHERE id = ?', [$programId])->fetch();
 if (!$program) {
     http_response_code(404);
     exit('Program not found.');
 }
 
 $area = trim((string) ($_GET['area'] ?? ''));
-$filter = $connection->prepare('SELECT DISTINCT service_area FROM feedback WHERE program_id = ? ORDER BY service_area');
-$filter->bind_param('i', $programId);
-$filter->execute();
-$areas = $filter->get_result()->fetch_all(MYSQLI_ASSOC);
+$areas = $connection->query('SELECT DISTINCT service_area FROM feedback WHERE program_id = ? ORDER BY service_area', [$programId])->fetchAll();
 
-$summary = $connection->prepare('SELECT COUNT(*) AS total, AVG(rating) AS average_rating, SUM(rating = 5) AS five_star FROM feedback WHERE program_id = ?');
-$summary->bind_param('i', $programId);
-$summary->execute();
-$stats = $summary->get_result()->fetch_assoc();
+$stats = $connection->query('SELECT COUNT(*) AS total, AVG(rating) AS average_rating, SUM(rating = 5) AS five_star FROM feedback WHERE program_id = ?', [$programId])->fetch();
 
 if ($area !== '') {
-    $recordsQuery = $connection->prepare('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? AND service_area = ? ORDER BY submitted_at DESC');
-    $recordsQuery->bind_param('is', $programId, $area);
+    $recordsQuery = $connection->query('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? AND service_area = ? ORDER BY submitted_at DESC', [$programId, $area]);
 } else {
-    $recordsQuery = $connection->prepare('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? ORDER BY submitted_at DESC');
-    $recordsQuery->bind_param('i', $programId);
+    $recordsQuery = $connection->query('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? ORDER BY submitted_at DESC', [$programId]);
 }
-$recordsQuery->execute();
-$records = $recordsQuery->get_result()->fetch_all(MYSQLI_ASSOC);
+$records = $recordsQuery->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">

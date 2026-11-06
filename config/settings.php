@@ -10,6 +10,8 @@ if (!is_array($localSettings)) {
 }
 
 return array_replace([
+    'db_driver' => getenv('DB_DRIVER') ?: 'mysql',
+    'sqlite_path' => getenv('SQLITE_PATH') ?: __DIR__ . '/../storage/experience.db',
     'db_host' => getenv('MYSQL_HOST') ?: 'localhost',
     'db_port' => (int) (getenv('MYSQL_PORT') ?: 3306),
     'db_name' => getenv('MYSQL_DATABASE') ?: '',

@@ -13,18 +13,26 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 $settings = require __DIR__ . '/../config/settings.php';
+require_once __DIR__ . '/database.php';
 
 function h(mixed $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-function db(): mysqli
+function db(): AppDatabase
 {
     static $connection;
     global $settings;
 
-    if (!$connection instanceof mysqli) {
+    if (!$connection instanceof AppDatabase) {
+        if ($settings['db_driver'] === 'sqlite') {
+            $connection = open_sqlite_database($settings['sqlite_path']);
+            return $connection;
+        }
+        if ($settings['db_driver'] !== 'mysql') {
+            throw new RuntimeException('Unsupported db_driver. Choose mysql or sqlite.');
+        }
         if ($settings['db_name'] === '' || $settings['db_user'] === '') {
             throw new RuntimeException('Database is not configured. Set the cPanel MySQL connection details in config/secrets.php.');
         }
@@ -34,14 +42,15 @@ function db(): mysqli
         }
 
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-        $connection = new mysqli(
+        $mysqli = new mysqli(
             $settings['db_host'],
             $settings['db_user'],
             $settings['db_password'],
             $settings['db_name'],
             (int) $settings['db_port']
         );
-        $connection->set_charset('utf8mb4');
+        $mysqli->set_charset('utf8mb4');
+        $connection = new AppDatabase($mysqli);
     }
 
     return $connection;

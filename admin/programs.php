@@ -7,7 +7,7 @@ $programs = [];
 $databaseError = '';
 try {
     $result = db()->query('SELECT id, name, slug, status, updated_at FROM programs ORDER BY updated_at DESC');
-    $programs = $result->fetch_all(MYSQLI_ASSOC);
+    $programs = $result->fetchAll();
 } catch (Throwable $exception) {
     error_log('Delegate Experience Centre admin/programs.php: ' . $exception->getMessage());
 

@@ -38,10 +38,7 @@ if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)
 }
 
 $connection = db();
-$programStatement = $connection->prepare("SELECT id, services_json FROM programs WHERE slug = ? AND status = 'published' LIMIT 1");
-$programStatement->bind_param('s', $slug);
-$programStatement->execute();
-$program = $programStatement->get_result()->fetch_assoc();
+$program = $connection->query("SELECT id, services_json FROM programs WHERE slug = ? AND status = 'published' LIMIT 1", [$slug])->fetch();
 if (!$program) {
     respond(404, ['ok' => false, 'message' => 'This program is not available.']);
 }
@@ -55,9 +52,7 @@ if (!in_array($area, $validAreas, true)) {
 
 $delegateName = $anonymous || $name === '' ? null : $name;
 $isAnonymous = $anonymous ? 1 : 0;
-$insert = $connection->prepare('INSERT INTO feedback (program_id, service_area, rating, delegate_name, is_anonymous, went_well, comments) VALUES (?, ?, ?, ?, ?, ?, ?)');
 $programId = (int) $program['id'];
-$insert->bind_param('isisiss', $programId, $area, $rating, $delegateName, $isAnonymous, $positive, $comments);
-$insert->execute();
+$connection->query('INSERT INTO feedback (program_id, service_area, rating, delegate_name, is_anonymous, went_well, comments) VALUES (?, ?, ?, ?, ?, ?, ?)', [$programId, $area, $rating, $delegateName, $isAnonymous, $positive, $comments]);
 
 respond(201, ['ok' => true, 'message' => 'Thank you. Your feedback has been recorded.']);
