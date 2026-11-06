@@ -140,6 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/loading.css">
+  <script defer src="../assets/loading.js"></script>
   <title><?= $id > 0 ? 'Edit' : 'Create' ?> program · Admin</title>
   <style>
     *{box-sizing:border-box}body{margin:0;background:#f2f7ff;color:#17345e;font:15px Arial,sans-serif}.wrap{max-width:760px;margin:auto;padding:24px}.card{padding:22px;background:#fff;border:1px solid #dce6f2;border-radius:16px}label{display:block;margin:14px 0 6px;font-weight:bold}input:not([type=color]):not([type=checkbox]),textarea,select{width:100%;padding:11px;border:1px solid #cbd9eb;border-radius:8px;font:inherit}input[type=file]{width:100%;padding:10px;border:1px solid #cbd9eb;border-radius:8px;background:white}textarea{min-height:100px}.colors{display:grid;grid-template-columns:1fr 1fr;gap:16px}.colors input{width:100%;height:44px}.actions{display:flex;gap:12px;align-items:center;margin-top:20px}.button{padding:11px 15px;border:0;border-radius:9px;background:#174889;color:white;text-decoration:none;font-weight:bold;cursor:pointer}.error{padding:10px;background:#fff0ed;color:#8b2415;border-radius:8px}.preview{display:block;max-width:100%;max-height:260px;object-fit:contain;margin:10px 0;border:1px solid #dce6f2;border-radius:10px}.hint{font-size:12px;color:#627895}

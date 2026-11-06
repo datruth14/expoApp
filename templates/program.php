@@ -16,6 +16,8 @@ $publicProgram = [
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="assets/loading.css">
+<script defer src="assets/loading.js"></script>
 <meta name="description" content="<?= h($program['description']) ?>">
 <title><?= h($program['name']) ?> · <?= h($program['platform_title']) ?></title>
 <style>
@@ -93,6 +95,7 @@ const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSO
   event.preventDefault();
   if(!$('feedbackArea').value||!rating){$('formMessage').textContent='Please select a service area and star rating.';return;}
   const form=event.currentTarget;const button=$('submitFeedback');button.disabled=true;$('formMessage').textContent='Sending your feedback…';
+  window.UIFeedback?.start(button);
    try{
     const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{Accept:'application/json'}});const result=await response.json();
     if(response.ok&&result.ok){
@@ -103,7 +106,7 @@ const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSO
     }else{$('formMessage').textContent=result.message||'Unable to submit feedback.';}
    }
   catch(error){$('formMessage').textContent='Unable to submit right now. Please try again.';}
-  finally{button.disabled=false;}
+  finally{button.disabled=false;window.UIFeedback?.stop(button);}
  });
 })();
 </script>

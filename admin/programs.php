@@ -58,6 +58,8 @@ unset($_SESSION['program_notice']);
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/loading.css">
+  <script defer src="../assets/loading.js"></script>
   <title>Programs · Admin</title>
   <style>
     *{box-sizing:border-box}body{margin:0;background:#f2f7ff;color:#17345e;font:15px Arial,sans-serif}.wrap{max-width:1000px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.card{margin-top:20px;padding:20px;background:#fff;border:1px solid #dce6f2;border-radius:16px;overflow:auto}.error-card{padding:18px;background:#fff7e6;border:1px solid #e9bf63;border-radius:12px;color:#5b421a;line-height:1.6}a,button{color:#174889}.button{display:inline-block;padding:10px 14px;border:0;border-radius:9px;background:#174889;color:#fff;text-decoration:none;font-weight:bold;cursor:pointer}.logout{padding:8px 12px;background:#fff;border:1px solid #cbd9eb;border-radius:8px}table{width:100%;border-collapse:collapse;min-width:700px}th,td{text-align:left;padding:12px;border-bottom:1px solid #e5ebf3}th{color:#6b7e98}.status{text-transform:capitalize}

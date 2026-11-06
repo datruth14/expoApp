@@ -80,6 +80,9 @@ def run():
             status, home, _ = request("/")
             assert status == 200 and "Loveword Expo 2026" in home, home
             assert 'href="admin' not in home and "localStorage" not in home
+            assert 'assets/loading.js' in home and 'assets/loading.css' in home
+            for asset in ['/assets/loading.js', '/assets/loading.css']:
+                assert request(asset)[0] == 200, asset
             assert database.exists(), "SQLite database was not created"
             for private in ["/storage/test.db", "/config/settings.php", "/.git/config", "/database_schema_sqlite.sql"]:
                 assert request(private)[0] == 404, private
@@ -87,6 +90,7 @@ def run():
 
             status, login, login_url = request("/admin")
             assert status == 200 and login_url.endswith('/admin/'), login_url
+            assert '../assets/loading.js' in login
             status, dashboard, _ = request("/admin/", {
                 "csrf_token": token(login), "username": "admin", "password": "admin12345",
             })

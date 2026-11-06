@@ -42,6 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/loading.css">
+  <script defer src="../assets/loading.js"></script>
   <title>Admin login · Delegate Experience Centre</title>
   <style>
     *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#f2f7ff;font:16px Arial,sans-serif;color:#17345e}.card{width:min(100%,420px);padding:28px;background:#fff;border:1px solid #dce6f2;border-radius:18px;box-shadow:0 12px 32px #17365d18}h1{margin-top:0;color:#123c7a}label{display:block;margin:16px 0 6px;font-weight:bold}input{width:100%;padding:12px;border:1px solid #cbd9eb;border-radius:9px;font:inherit}.button{margin-top:20px;width:100%;padding:12px;border:0;border-radius:9px;background:#174889;color:#fff;font-weight:bold;font:inherit;cursor:pointer}.error{padding:10px;background:#fff0ed;color:#8b2415;border-radius:8px}.back{display:inline-block;margin-top:18px;color:#174889}

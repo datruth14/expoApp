@@ -27,6 +27,7 @@ PROJECT CONTENTS
 - includes/database.php: shared prepared-query interface for MySQLi and SQLite.
 - storage/experience.db: automatically created offline SQLite database (not committed).
 - local-router.php: offline PHP-server router that blocks access to private files.
+- assets/loading.css and assets/loading.js: shared button spinners and shimmer indicators for public/admin actions, forms, navigation, and CSV downloads; bundled locally for offline use.
 - database_upgrade_v2.sql: one-time migration for databases made from the earlier starter schema.
 - database_upgrade_v3.sql: adds persistent homepage selection to an existing MySQL database.
 - database_schema_postgresql.sql: original PostgreSQL proposal, retained for reference only.

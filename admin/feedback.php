@@ -28,6 +28,8 @@ $records = $recordsQuery->fetchAll();
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/loading.css">
+  <script defer src="../assets/loading.js"></script>
   <title>Feedback · <?= h($program['name']) ?></title>
   <style>
     *{box-sizing:border-box}body{margin:0;background:#f2f7ff;color:#17345e;font:15px Arial,sans-serif}.wrap{max-width:1120px;margin:auto;padding:24px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.stat,.card{padding:18px;background:white;border:1px solid #dce6f2;border-radius:15px}.stat b{display:block;font-size:24px;color:#1753a0}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0}.button{display:inline-block;padding:10px 14px;border:0;border-radius:9px;background:#174889;color:#fff;text-decoration:none;font-weight:bold}.select{padding:10px;border:1px solid #cbd9eb;border-radius:8px;background:white}table{width:100%;border-collapse:collapse;min-width:850px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5ebf3;vertical-align:top}th{color:#6b7e98}.tablewrap{overflow-x:auto}.comment{max-width:260px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}.muted{color:#627895;font-size:13px}@media(max-width:600px){.stats{grid-template-columns:1fr}}
@@ -47,12 +49,12 @@ $records = $recordsQuery->fetchAll();
       <form method="get" action="feedback.php">
         <input type="hidden" name="program_id" value="<?= (int) $programId ?>">
         <label for="area">Service area</label>
-        <select class="select" id="area" name="area" onchange="this.form.submit()">
+        <select class="select" id="area" name="area" data-auto-submit>
           <option value="">All service areas</option>
           <?php foreach ($areas as $item): ?><option value="<?= h($item['service_area']) ?>"<?= $area === $item['service_area'] ? ' selected' : '' ?>><?= h($item['service_area']) ?></option><?php endforeach; ?>
         </select>
       </form>
-      <a class="button" href="export-feedback.php?program_id=<?= (int) $programId ?>">Download CSV</a>
+      <a class="button" href="export-feedback.php?program_id=<?= (int) $programId ?>" data-download>Download CSV</a>
     </div>
     <section class="card tablewrap">
       <?php if ($records === []): ?><p>No feedback has been submitted<?= $area !== '' ? ' for this service area' : '' ?> yet.</p><?php else: ?>
