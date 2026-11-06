@@ -71,6 +71,7 @@ $publicProgram = [
  </section>
   <footer><em><?= h($program['platform_title']) ?></em> · <?= h($program['name']) ?></footer>
 </div>
+<script src="assets/vendor/sweetalert2.all.min.js"></script>
 <script>
 const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;
 (function(){
@@ -92,7 +93,15 @@ const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSO
   event.preventDefault();
   if(!$('feedbackArea').value||!rating){$('formMessage').textContent='Please select a service area and star rating.';return;}
   const form=event.currentTarget;const button=$('submitFeedback');button.disabled=true;$('formMessage').textContent='Sending your feedback…';
-  try{const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{Accept:'application/json'}});const result=await response.json();if(response.ok&&result.ok)form.reset();$('formMessage').textContent=result.message||'Unable to submit feedback.';}
+   try{
+    const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{Accept:'application/json'}});const result=await response.json();
+    if(response.ok&&result.ok){
+     form.reset();
+     const message=result.message||'Thank you. Your feedback has been recorded.';
+     if(window.Swal){Swal.fire({toast:true,position:'top-end',icon:'success',titleText:message,showConfirmButton:false,showCloseButton:true,timer:5000,timerProgressBar:true,didOpen:toast=>{toast.addEventListener('mouseenter',Swal.stopTimer);toast.addEventListener('mouseleave',Swal.resumeTimer);}});}
+     else{$('formMessage').textContent=message;}
+    }else{$('formMessage').textContent=result.message||'Unable to submit feedback.';}
+   }
   catch(error){$('formMessage').textContent='Unable to submit right now. Please try again.';}
   finally{button.disabled=false;}
  });

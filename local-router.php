@@ -7,6 +7,7 @@ $publicScripts = ['index.php', 'index.html', 'program.php', 'submit-feedback.php
 $adminScripts = ['index.php', 'login.php', 'logout.php', 'programs.php', 'program-edit.php', 'feedback.php', 'export-feedback.php'];
 $allowed = $path === '/' || $path === '/admin' || $path === '/admin/'
     || in_array(ltrim($path, '/'), $publicScripts, true)
+    || $path === '/assets/vendor/sweetalert2.all.min.js'
     || (str_starts_with($path, '/admin/') && in_array(substr($path, 7), $adminScripts, true))
     || preg_match('~^/uploads/banners/[a-f0-9]{32}\.(jpg|png|webp)$~', $path);
 if (!$allowed) {
