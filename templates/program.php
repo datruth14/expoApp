@@ -31,7 +31,6 @@ $publicProgram = [
   <div class="wordmark"><span id="platformTitle"><?= h($program['platform_title']) ?></span><small id="topEventLabel"><?= h($program['name']) ?></small></div>
   <nav aria-label="Main navigation">
    <button class="active" data-page="home">HOME</button>
-   <button data-page="feedback">FEEDBACK</button>
   </nav>
  </header>
  <section id="home">
