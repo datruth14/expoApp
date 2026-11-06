@@ -28,9 +28,19 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 INSERT IGNORE INTO platform_settings (id) VALUES (1);
 
+CREATE TABLE IF NOT EXISTS delegates (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  kingschat_user_id VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL UNIQUE,
+  handle VARCHAR(180) NOT NULL,
+  display_name VARCHAR(180) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS feedback (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   program_id BIGINT UNSIGNED NOT NULL,
+  delegate_id BIGINT UNSIGNED NULL,
   service_area VARCHAR(180) NOT NULL,
   rating TINYINT UNSIGNED NOT NULL,
   delegate_name VARCHAR(180) NULL,
@@ -41,6 +51,8 @@ CREATE TABLE IF NOT EXISTS feedback (
   PRIMARY KEY (id),
   KEY feedback_program_date (program_id, submitted_at),
   KEY feedback_program_area (program_id, service_area),
+  KEY feedback_delegate_idx (delegate_id),
+  CONSTRAINT feedback_delegate_fk FOREIGN KEY (delegate_id) REFERENCES delegates (id) ON DELETE SET NULL,
   CONSTRAINT feedback_program_fk FOREIGN KEY (program_id) REFERENCES programs (id) ON DELETE CASCADE,
   CONSTRAINT feedback_rating_check CHECK (rating BETWEEN 1 AND 5)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

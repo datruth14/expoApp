@@ -22,10 +22,14 @@ if ($submittedToken === '' || !hash_equals(csrf_token(), $submittedToken)) {
     respond(400, ['ok' => false, 'message' => 'Please reload the page and try again.']);
 }
 
+$delegate = current_delegate();
+if (!$delegate) {
+    respond(401, ['ok' => false, 'message' => 'Please sign in with KingsChat before submitting feedback.']);
+}
+
 $slug = trim((string) ($_POST['program_slug'] ?? ''));
 $area = trim((string) ($_POST['area'] ?? ''));
 $rating = filter_var($_POST['rating'] ?? null, FILTER_VALIDATE_INT);
-$name = trim((string) ($_POST['name'] ?? ''));
 $anonymous = isset($_POST['anonymous']);
 $positive = trim((string) ($_POST['positive'] ?? ''));
 $comments = trim((string) ($_POST['comments'] ?? ''));
@@ -33,7 +37,7 @@ $comments = trim((string) ($_POST['comments'] ?? ''));
 if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)
     || $area === '' || mb_strlen($area) > 180
     || $rating === false || $rating < 1 || $rating > 5
-    || mb_strlen($name) > 180 || mb_strlen($positive) > 10000 || mb_strlen($comments) > 10000) {
+    || mb_strlen($positive) > 10000 || mb_strlen($comments) > 10000) {
     respond(422, ['ok' => false, 'message' => 'Please check the required fields and try again.']);
 }
 
@@ -50,9 +54,9 @@ if (!in_array($area, $validAreas, true)) {
     respond(422, ['ok' => false, 'message' => 'Please choose a valid service area.']);
 }
 
-$delegateName = $anonymous || $name === '' ? null : $name;
+$delegateName = $anonymous ? null : ($delegate['display_name'] ?: $delegate['handle']);
 $isAnonymous = $anonymous ? 1 : 0;
 $programId = (int) $program['id'];
-$connection->query('INSERT INTO feedback (program_id, service_area, rating, delegate_name, is_anonymous, went_well, comments) VALUES (?, ?, ?, ?, ?, ?, ?)', [$programId, $area, $rating, $delegateName, $isAnonymous, $positive, $comments]);
+$connection->query('INSERT INTO feedback (program_id, delegate_id, service_area, rating, delegate_name, is_anonymous, went_well, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$programId, (int) $delegate['id'], $area, $rating, $delegateName, $isAnonymous, $positive, $comments]);
 
 respond(201, ['ok' => true, 'message' => 'Thank you. Your feedback has been recorded.']);

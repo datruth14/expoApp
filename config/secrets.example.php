@@ -9,6 +9,9 @@ return [
     'db_name' => 'cpanel_account_database',
     'db_user' => 'cpanel_account_user',
     'db_password' => 'replace-with-your-database-password',
+    // Register /delegate-callback.php in KingsChat with REDIRECT delivery.
+    'kingschat_client_id' => '',
+    'kingschat_api_key' => '',
     'admin_username' => 'admin',
     // This hash corresponds to the requested initial password: admin12345.
     'admin_password_hash' => '$2y$10$s0qOCq.GgdSWiTAU4RzBm.ccWbs/poa08EHJOnC7zwRCQF3RQwz2W',

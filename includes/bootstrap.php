@@ -14,6 +14,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 $settings = require __DIR__ . '/../config/settings.php';
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/kingschat.php';
 
 function h(mixed $value): string
 {

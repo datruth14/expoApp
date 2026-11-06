@@ -17,9 +17,9 @@ $areas = $connection->query('SELECT DISTINCT service_area FROM feedback WHERE pr
 $stats = $connection->query('SELECT COUNT(*) AS total, AVG(rating) AS average_rating, SUM(rating = 5) AS five_star FROM feedback WHERE program_id = ?', [$programId])->fetch();
 
 if ($area !== '') {
-    $recordsQuery = $connection->query('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? AND service_area = ? ORDER BY submitted_at DESC', [$programId, $area]);
+    $recordsQuery = $connection->query('SELECT f.submitted_at, f.service_area, f.rating, f.delegate_name, f.is_anonymous, f.went_well, f.comments, d.handle FROM feedback f LEFT JOIN delegates d ON d.id = f.delegate_id WHERE f.program_id = ? AND f.service_area = ? ORDER BY f.submitted_at DESC', [$programId, $area]);
 } else {
-    $recordsQuery = $connection->query('SELECT submitted_at, service_area, rating, delegate_name, is_anonymous, went_well, comments FROM feedback WHERE program_id = ? ORDER BY submitted_at DESC', [$programId]);
+    $recordsQuery = $connection->query('SELECT f.submitted_at, f.service_area, f.rating, f.delegate_name, f.is_anonymous, f.went_well, f.comments, d.handle FROM feedback f LEFT JOIN delegates d ON d.id = f.delegate_id WHERE f.program_id = ? ORDER BY f.submitted_at DESC', [$programId]);
 }
 $records = $recordsQuery->fetchAll();
 ?>
@@ -65,7 +65,7 @@ $records = $recordsQuery->fetchAll();
               <td><?= h($record['submitted_at']) ?></td>
               <td><?= h($record['service_area']) ?></td>
               <td><?= str_repeat('★', (int) $record['rating']) ?></td>
-              <td><?= !empty($record['is_anonymous']) ? 'Anonymous' : h($record['delegate_name'] ?: 'Not provided') ?></td>
+              <td><?= !empty($record['is_anonymous']) ? 'Anonymous' : h($record['delegate_name'] ?: 'Not provided') ?><?php if (empty($record['is_anonymous']) && $record['handle']): ?><br><small>@<?= h($record['handle']) ?></small><?php endif; ?></td>
               <td class="comment"><?= h($record['went_well'] ?: '—') ?></td>
               <td class="comment"><?= h($record['comments'] ?: '—') ?></td>
             </tr>

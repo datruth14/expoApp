@@ -25,6 +25,13 @@ try {
         $program['services'] = default_program_services();
     }
     $program['id'] = (int) $program['id'];
+    $delegate = current_delegate();
+    $requestedArea = is_string($_GET['area'] ?? null) ? $_GET['area'] : '';
+    $validAreas = array_column($program['services'], 0);
+    $validAreas[] = 'Overall event experience';
+    if (!in_array($requestedArea, $validAreas, true)) {
+        $requestedArea = '';
+    }
     $feedbackCsrf = csrf_token();
 
     require __DIR__ . '/templates/program.php';

@@ -39,7 +39,7 @@ try {
             1044 => 'The database user does not have access to this database. In cPanel > MySQL Databases, add the configured user to the configured database and assign the required privileges.',
             1045 => 'MySQL rejected the database login. Check the database username/password in config/secrets.php and confirm that the user is assigned to this database in cPanel.',
             1049 => 'The configured MySQL database was not found. Check the full cPanel database name in config/secrets.php.',
-            1146 => 'A database table is missing. For an existing installation, import database_upgrade_v3.sql to enable homepage selection (run the v2 upgrade first if still needed). For a new database, import database_schema_mysql.sql.',
+            1146 => 'A database table is missing. Apply the required database_upgrade_v2.sql, database_upgrade_v3.sql, and database_upgrade_v4.sql migrations for this installation. For a new database, import database_schema_mysql.sql.',
             1054 => 'The database schema is out of date. Back up the database and run database_upgrade_v2.sql in phpMyAdmin.',
             2002, 2003 => 'The MySQL server connection failed. Verify the database host and port with your cPanel provider and confirm its MySQL service is running.',
             2005 => 'The database host could not be resolved. Use the MySQL hostname supplied by your cPanel provider in config/secrets.php.',
@@ -81,6 +81,7 @@ unset($_SESSION['program_notice']);
         <p>After correcting the setup, reload this page. No program records were changed.</p>
       </section>
     <?php else: ?>
+    <?php if (!kingschat_configured()): ?><p class="error-card">Delegate feedback requires KingsChat sign-in. Configure kingschat_client_id and kingschat_api_key in config/secrets.php, and register the delegate-callback.php URL with REDIRECT delivery in the KingsChat developer dashboard.</p><?php endif; ?>
     <?php if ($notice !== ''): ?><p role="status"><?= h($notice) ?></p><?php endif; ?>
     <?php if ($selectionError !== ''): ?><p class="error-card" role="alert"><?= h($selectionError) ?></p><?php endif; ?>
     <p><strong>Current homepage:</strong> <?= $homeProgram ? h($homeProgram['name']) : 'No published program' ?>. Choose a published program below to change what visitors see at the site address.</p>

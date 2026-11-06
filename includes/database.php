@@ -66,9 +66,15 @@ function open_sqlite_database(string $path): AppDatabase
     $connection->exec('PRAGMA foreign_keys = ON');
     $connection->exec('PRAGMA busy_timeout = 5000');
     $version = (int) $connection->query('PRAGMA user_version')->fetchColumn();
-    if ($version < 2) {
+    if ($version < 3) {
         $connection->beginTransaction();
         try {
+            if ($version >= 1) {
+                $columns = $connection->query('PRAGMA table_info(feedback)')->fetchAll(PDO::FETCH_ASSOC);
+                if ($columns && !in_array('delegate_id', array_column($columns, 'name'), true)) {
+                    $connection->exec('ALTER TABLE feedback ADD COLUMN delegate_id INTEGER REFERENCES delegates(id) ON DELETE SET NULL');
+                }
+            }
             $connection->exec(file_get_contents(__DIR__ . '/../database_schema_sqlite.sql'));
             if ($version < 1) {
                 $seed = $connection->prepare('INSERT OR IGNORE INTO programs (name, slug, platform_title, tagline, description, welcome_message, services_json, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
@@ -81,7 +87,7 @@ function open_sqlite_database(string $path): AppDatabase
                     'published',
                 ]);
             }
-            $connection->exec('PRAGMA user_version = 2');
+            $connection->exec('PRAGMA user_version = 3');
             $connection->commit();
         } catch (Throwable $exception) {
             $connection->rollBack();

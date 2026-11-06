@@ -24,6 +24,10 @@ Delegate Experience Centre uses PHP 8.1+, MySQL/MariaDB for cPanel or SQLite for
 - Homepage selection is stored in `platform_settings` and changed by a CSRF-protected admin POST. Only published programs can be displayed; `homepage_program()` falls back to the oldest published program if needed. Existing MySQL installations need `database_upgrade_v3.sql`; SQLite upgrades automatically to schema version 2.
 - Configure cPanel MySQL credentials in ignored `config/secrets.php`, import the appropriate schema, and ensure `uploads/banners` is writable by PHP.
 - Keep HTTPS enabled. Never commit `config/secrets.php` or real credentials.
+- Delegate browsing is public; submitting feedback requires `current_delegate()` and server-side KingsChat verification. Admin login is not delegate login. Preserve independent logout behavior.
+- KingsChat uses authorization-code exchange and the profile API, with credentials in `config/secrets.php`. Require a session-bound, one-time `origin` nonce, REDIRECT callback delivery, and TLS. Never trust browser-supplied handles/IDs or persist provider tokens. See `docs/kingschat.md`.
+- New installations use the full schemas; existing MySQL installations need `database_upgrade_v4.sql` for delegates. SQLite auto-upgrades to schema version 3 without discarding historical feedback.
+- Mask both name and KingsChat handle for anonymous/report-hidden feedback in HTML and CSV while preserving its internal `delegate_id` link.
 - Start offline with `DB_DRIVER=sqlite php -S 127.0.0.1:8000 local-router.php`. The router protects private files because PHP's built-in server ignores `.htaccess`.
 
 ## Checks

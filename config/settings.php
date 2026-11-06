@@ -10,6 +10,10 @@ if (!is_array($localSettings)) {
 }
 
 return array_replace([
+    'app_env' => getenv('APP_ENV') ?: 'production',
+    'kingschat_client_id' => getenv('KINGSCHAT_CLIENT_ID') ?: '',
+    'kingschat_api_key' => getenv('KINGSCHAT_API_KEY') ?: '',
+    'kingschat_api_base_url' => getenv('KINGSCHAT_API_BASE_URL') ?: 'https://connect.kingsch.at',
     'db_driver' => getenv('DB_DRIVER') ?: 'mysql',
     'sqlite_path' => getenv('SQLITE_PATH') ?: __DIR__ . '/../storage/experience.db',
     'db_host' => getenv('MYSQL_HOST') ?: 'localhost',

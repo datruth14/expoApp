@@ -9,6 +9,8 @@ $publicProgram = [
     'primary' => $program['primary_color'],
     'accent' => $program['accent_color'],
     'services' => $program['services'],
+    'signedIn' => (bool) $delegate,
+    'initialArea' => $requestedArea,
 ];
 ?>
 <!doctype html>
@@ -57,15 +59,29 @@ $publicProgram = [
  </section>
  <section id="feedback" class="hidden">
   <h2 class="section-title">DELEGATE FEEDBACK</h2><p class="section-sub">Your feedback helps the event team improve the delegate experience.</p>
-  <form class="panel" id="feedbackForm" action="submit-feedback.php" method="post">
+  <div class="panel<?= $delegate ? ' hidden' : '' ?>" id="delegateGate">
+   <h3>Sign in to share feedback</h3>
+   <p id="delegateGateMessage">Continue with KingsChat to verify your account, then return to this service’s feedback form.</p>
+   <a class="btn primary" id="delegateSignin" href="<?= h(delegate_login_url($program['slug'], $requestedArea ?: 'Overall event experience')) ?>" style="display:inline-block;text-decoration:none">Continue with KingsChat</a>
+  </div>
+  <?php if ($delegate): ?>
+  <div class="panel" style="margin-bottom:14px">
+   <p>Signed in with KingsChat as <strong>@<?= h($delegate['handle']) ?></strong></p>
+   <form method="post" action="delegate-logout.php">
+    <input type="hidden" name="csrf_token" value="<?= h($feedbackCsrf) ?>">
+    <button class="btn" type="submit">Sign out of KingsChat on this site</button>
+   </form>
+  </div>
+  <?php endif; ?>
+  <form class="panel<?= $delegate ? '' : ' hidden' ?>" id="feedbackForm" action="submit-feedback.php" method="post">
    <input type="hidden" name="program_slug" value="<?= h($program['slug']) ?>">
    <input type="hidden" name="csrf_token" value="<?= h($feedbackCsrf) ?>">
-   <label for="delegateName">Name (optional)</label><input id="delegateName" name="name" maxlength="180" placeholder="Enter your name">
    <label for="feedbackArea">Service area</label><select id="feedbackArea" name="area" required></select>
    <label>How would you rate this service?</label><div class="stars" id="stars" role="group" aria-label="Service rating"><button type="button" data-star="1" aria-label="1 star">★</button><button type="button" data-star="2" aria-label="2 stars">★</button><button type="button" data-star="3" aria-label="3 stars">★</button><button type="button" data-star="4" aria-label="4 stars">★</button><button type="button" data-star="5" aria-label="5 stars">★</button></div><input type="hidden" name="rating" id="rating" value="">
    <label for="positive">What went well?</label><textarea id="positive" name="positive" rows="3" maxlength="10000" placeholder="Tell us what you appreciated..."></textarea>
    <label for="improve">Comments or areas for improvement</label><textarea id="improve" name="comments" rows="4" maxlength="10000" placeholder="Tell us what could be improved..."></textarea>
-   <label style="display:flex;align-items:center;gap:8px"><input id="anonymous" name="anonymous" type="checkbox"> Submit anonymously</label>
+   <label style="display:flex;align-items:center;gap:8px"><input id="anonymous" name="anonymous" type="checkbox"> Hide my name and KingsChat handle in feedback reports</label>
+   <p class="section-sub">Your sign-in remains linked internally; selecting this option hides your identity in admin feedback views and CSV exports.</p>
    <div class="actions"><button class="btn primary" id="submitFeedback" type="submit">SUBMIT FEEDBACK</button><button class="btn" type="reset">CLEAR FORM</button></div><p id="formMessage" class="section-sub" role="status" aria-live="polite"></p>
   </form>
  </section>
@@ -79,18 +95,22 @@ const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSO
  const $=id=>document.getElementById(id);
  const pages=['home','area','feedback'];
  function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
- function show(page){pages.forEach(p=>$(p).classList.toggle('hidden',p!==page));root.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));window.scrollTo({top:0,behavior:'smooth'});}
+ function show(page){pages.forEach(p=>$(p).classList.toggle('hidden',p!==page));root.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='feedback')updateSignInLink();window.scrollTo({top:0,behavior:'smooth'});}
+ function updateSignInLink(){const query=new URLSearchParams({program:PROGRAM.slug,area:$('feedbackArea').value||'Overall event experience'});$('delegateSignin').href='delegate-login.php?'+query.toString();}
  root.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.page)));
  root.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.back)));
  $('serviceGrid').innerHTML=PROGRAM.services.map((service,i)=>`<button class="service c${i%9+1}" data-service="${i}"><span class="ico">${safe(service[2]||'✦')}</span><span class="service-name"><strong>${safe(service[0])}</strong></span></button>`).join('');
  $('serviceGrid').querySelectorAll('[data-service]').forEach(button=>button.addEventListener('click',()=>{const service=PROGRAM.services[+button.dataset.service];$('areaTitle').textContent=service[0];$('areaDescription').textContent=service[1];$('feedbackArea').value=service[0];show('area');}));
  $('feedbackArea').innerHTML='<option value="">Select service area</option>'+PROGRAM.services.map(s=>`<option value="${safe(s[0])}">${safe(s[0])}</option>`).join('')+'<option value="Overall event experience">Overall event experience</option>';
+ $('feedbackArea').value=PROGRAM.initialArea;
+ if(PROGRAM.initialArea)show('feedback');
  $('jumpServices').addEventListener('click',()=>$('services').scrollIntoView({behavior:'smooth'}));
  $('areaFeedback').addEventListener('click',()=>show('feedback'));
  root.querySelectorAll('[data-star]').forEach(button=>button.addEventListener('click',()=>{rating=+button.dataset.star;$('rating').value=String(rating);root.querySelectorAll('[data-star]').forEach(star=>star.classList.toggle('sel',+star.dataset.star<=rating));}));
  $('feedbackForm').addEventListener('reset',()=>{rating=0;$('rating').value='';root.querySelectorAll('[data-star]').forEach(star=>star.classList.remove('sel'));$('formMessage').textContent='';});
  $('feedbackForm').addEventListener('submit',async event=>{
   event.preventDefault();
+  if(!PROGRAM.signedIn){show('feedback');return;}
   if(!$('feedbackArea').value||!rating){$('formMessage').textContent='Please select a service area and star rating.';return;}
   const form=event.currentTarget;const button=$('submitFeedback');button.disabled=true;$('formMessage').textContent='Sending your feedback…';
   window.UIFeedback?.start(button);
@@ -101,7 +121,10 @@ const PROGRAM=<?= json_encode($publicProgram, JSON_HEX_TAG | JSON_HEX_APOS | JSO
      const message=result.message||'Thank you. Your feedback has been recorded.';
      if(window.Swal){Swal.fire({toast:true,position:'top-end',icon:'success',titleText:message,showConfirmButton:false,showCloseButton:true,timer:5000,timerProgressBar:true,didOpen:toast=>{toast.addEventListener('mouseenter',Swal.stopTimer);toast.addEventListener('mouseleave',Swal.resumeTimer);}});}
      else{$('formMessage').textContent=message;}
-    }else{$('formMessage').textContent=result.message||'Unable to submit feedback.';}
+    }else{
+     $('formMessage').textContent=result.message||'Unable to submit feedback.';
+     if(response.status===401){PROGRAM.signedIn=false;$('feedbackForm').classList.add('hidden');$('delegateGate').classList.remove('hidden');$('delegateGateMessage').textContent=result.message;updateSignInLink();}
+    }
    }
   catch(error){$('formMessage').textContent='Unable to submit right now. Please try again.';}
   finally{button.disabled=false;window.UIFeedback?.stop(button);}

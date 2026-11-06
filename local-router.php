@@ -9,7 +9,7 @@ if ($path === '/admin') {
     header('Location: /admin/', true, 308);
     exit;
 }
-$publicScripts = ['index.php', 'index.html', 'program.php', 'submit-feedback.php'];
+$publicScripts = ['index.php', 'index.html', 'program.php', 'submit-feedback.php', 'delegate-login.php', 'delegate-callback.php', 'delegate-logout.php'];
 $adminScripts = ['index.php', 'login.php', 'logout.php', 'programs.php', 'program-edit.php', 'feedback.php', 'export-feedback.php'];
 $allowed = $path === '/' || $path === '/admin' || $path === '/admin/'
     || in_array(ltrim($path, '/'), $publicScripts, true)

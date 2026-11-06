@@ -17,9 +17,19 @@ CREATE TABLE IF NOT EXISTS programs (
 );
 CREATE INDEX IF NOT EXISTS programs_status_updated ON programs (status, updated_at);
 
+CREATE TABLE IF NOT EXISTS delegates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kingschat_user_id TEXT NOT NULL UNIQUE,
+  handle TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS feedback (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+  delegate_id INTEGER REFERENCES delegates(id) ON DELETE SET NULL,
   service_area TEXT NOT NULL,
   rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
   delegate_name TEXT,
@@ -30,6 +40,7 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 CREATE INDEX IF NOT EXISTS feedback_program_date ON feedback (program_id, submitted_at);
 CREATE INDEX IF NOT EXISTS feedback_program_area ON feedback (program_id, service_area);
+CREATE INDEX IF NOT EXISTS feedback_delegate_idx ON feedback (delegate_id);
 
 CREATE TABLE IF NOT EXISTS platform_settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),
