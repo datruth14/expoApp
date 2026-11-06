@@ -31,7 +31,7 @@ $publicProgram = [
   <div class="wordmark"><span id="platformTitle"><?= h($program['platform_title']) ?></span><small id="topEventLabel"><?= h($program['name']) ?></small></div>
   <nav aria-label="Main navigation">
    <button class="active" data-page="home">HOME</button>
-   <button data-page="feedback">SUBMIT FEEDBACK</button>
+   <button data-page="feedback">FEEDBACK</button>
   </nav>
  </header>
  <section id="home">
@@ -47,14 +47,13 @@ $publicProgram = [
    <h2 class="section-title">SERVICE AREAS</h2>
    <p class="section-sub">Select a service area to view details or share feedback.</p>
    <div class="grid" id="serviceGrid"></div>
-   <div class="quick"><button data-page="feedback"><span>✍️</span>SUBMIT DELEGATE FEEDBACK</button></div>
   </div>
  </section>
  <section id="area" class="hidden">
   <button class="btn" data-back="home">← BACK TO SERVICE AREAS</button>
   <div class="service-detail" style="margin-top:16px">
    <h2 class="mini-title" id="areaTitle">SERVICE AREA</h2><p class="section-sub" id="areaDescription"></p>
-   <button class="btn primary" id="areaFeedback">SUBMIT FEEDBACK →</button>
+   <button class="btn primary" id="areaFeedback">RATE THIS SERVICE →</button>
   </div>
  </section>
  <section id="feedback" class="hidden">
