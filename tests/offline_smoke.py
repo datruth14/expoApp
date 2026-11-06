@@ -84,12 +84,13 @@ def run():
                 assert request(private)[0] == 404, private
             assert request("/admin/export-feedback.php?program_id=1")[2].endswith("/admin/login.php")
 
-            status, login, _ = request("/admin/")
-            assert status == 200
+            status, login, login_url = request("/admin")
+            assert status == 200 and login_url.endswith('/admin/'), login_url
             status, dashboard, _ = request("/admin/", {
                 "csrf_token": token(login), "username": "admin", "password": "admin12345",
             })
             assert status == 200 and "Program manager" in dashboard, dashboard
+            assert request("/admin")[2].endswith("/admin/programs.php")
             assert request("/")[0] == 200, "Admin cannot return to homepage"
 
             _, editor, _ = request("/admin/program-edit.php")
